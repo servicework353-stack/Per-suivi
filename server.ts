@@ -1,6 +1,8 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
+import pkg from "pg";
+const { Pool } = pkg;
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -12,23 +14,49 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = process.env.DATABASE_PATH || "permis.db";
-const db = new Database(dbPath);
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key";
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("admin123", 10);
 
-// Initialize Database
-db.exec(`
-  CREATE TABLE IF NOT EXISTS applications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tracking_code TEXT UNIQUE NOT NULL,
-    first_name TEXT,
-    last_name TEXT,
-    status TEXT NOT NULL,
-    last_updated TEXT NOT NULL,
-    comment TEXT
-  );
-`);
+// --- DATABASE ABSTRACTION ---
+let db: any;
+const isPostgres = !!process.env.DATABASE_URL;
+
+if (isPostgres) {
+  console.log("--- PRODUCTION MODE: Using PostgreSQL ---");
+  db = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+  
+  // Initialize Postgres Table
+  db.query(`
+    CREATE TABLE IF NOT EXISTS applications (
+      id SERIAL PRIMARY KEY,
+      tracking_code TEXT UNIQUE NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      status TEXT NOT NULL,
+      last_updated TEXT NOT NULL,
+      comment TEXT
+    );
+  `).then(() => console.log("PostgreSQL Table Ready")).catch(console.error);
+} else {
+  console.log("--- DEMO MODE: Using SQLite (Data will be lost on restart) ---");
+  const dbPath = process.env.DATABASE_PATH || "permis.db";
+  db = new Database(dbPath);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tracking_code TEXT UNIQUE NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      status TEXT NOT NULL,
+      last_updated TEXT NOT NULL,
+      comment TEXT
+    );
+  `);
+}
 
 const app = express();
 app.use(express.json());
@@ -50,68 +78,83 @@ const authenticateToken = (req: any, res: any, next: any) => {
 // --- API ROUTES ---
 
 // Public: Get application by tracking code
-app.get("/api/track/:code", (req, res) => {
+app.get("/api/track/:code", async (req, res) => {
   const { code } = req.params;
-  const stmt = db.prepare("SELECT * FROM applications WHERE tracking_code = ?");
-  const application = stmt.get(code);
+  try {
+    let application;
+    if (isPostgres) {
+      const result = await db.query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
+      application = result.rows[0];
+    } else {
+      application = db.prepare("SELECT * FROM applications WHERE tracking_code = ?").get(code);
+    }
 
-  if (!application) {
-    return res.status(404).json({ error: "Dossier non trouvé" });
+    if (!application) {
+      return res.status(404).json({ error: "Dossier non trouvé" });
+    }
+    res.json(application);
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
   }
-
-  res.json(application);
 });
 
 // Admin: Login
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body;
-  
-  // Normalize inputs: trim and lowercase username
-  const u = String(username || "").trim().toLowerCase();
+  const u = String(username || "").trim();
   const p = String(password || "").trim();
 
-  // 1. Direct check for default credentials (highest priority for ease of use)
-  const isDefault = (u === "admin" && p === "admin123");
-  
-  // 2. Check against environment hash if provided
-  let isHashed = false;
-  if (u === "admin" && process.env.ADMIN_PASSWORD_HASH) {
-    try {
-      isHashed = bcrypt.compareSync(p, process.env.ADMIN_PASSWORD_HASH);
-    } catch (e) {
-      console.error("Bcrypt comparison failed:", e);
-    }
-  }
-
-  if (isDefault || isHashed) {
-    const token = jwt.sign({ username: "admin" }, JWT_SECRET, { expiresIn: "24h" });
+  if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
+    const token = jwt.sign({ username: u }, JWT_SECRET, { expiresIn: "24h" });
     return res.json({ token });
   }
+  res.status(401).json({ error: "Identifiants invalides." });
+});
 
-  res.status(401).json({ error: "Identifiants invalides. Utilisez 'admin' et 'admin123'." });
+// Admin: Get system status
+app.get("/api/admin/status", authenticateToken, (req, res) => {
+  res.json({
+    database: isPostgres ? "PostgreSQL (Permanent)" : "SQLite (Temporaire - Données perdues au redémarrage)",
+    mode: process.env.NODE_ENV || "development",
+    isPostgres
+  });
 });
 
 // Admin: Get all applications
-app.get("/api/admin/applications", authenticateToken, (req, res) => {
-  const stmt = db.prepare("SELECT * FROM applications ORDER BY last_updated DESC");
-  const applications = stmt.all();
-  res.json(applications);
+app.get("/api/admin/applications", authenticateToken, async (req, res) => {
+  try {
+    let applications;
+    if (isPostgres) {
+      const result = await db.query("SELECT * FROM applications ORDER BY last_updated DESC");
+      applications = result.rows;
+    } else {
+      applications = db.prepare("SELECT * FROM applications ORDER BY last_updated DESC").all();
+    }
+    res.json(applications);
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
 });
 
 // Admin: Create application
-app.post("/api/admin/applications", authenticateToken, (req, res) => {
+app.post("/api/admin/applications", authenticateToken, async (req, res) => {
   const { tracking_code, first_name, last_name, status, comment } = req.body;
   const last_updated = new Date().toISOString();
 
   try {
-    const stmt = db.prepare(`
-      INSERT INTO applications (tracking_code, first_name, last_name, status, last_updated, comment)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    const result = stmt.run(tracking_code, first_name, last_name, status, last_updated, comment);
-    res.status(201).json({ id: result.lastInsertRowid });
+    if (isPostgres) {
+      const result = await db.query(
+        "INSERT INTO applications (tracking_code, first_name, last_name, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+        [tracking_code, first_name, last_name, status, last_updated, comment]
+      );
+      res.status(201).json({ id: result.rows[0].id });
+    } else {
+      const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?)");
+      const result = stmt.run(tracking_code, first_name, last_name, status, last_updated, comment);
+      res.status(201).json({ id: result.lastInsertRowid });
+    }
   } catch (error: any) {
-    if (error.message.includes("UNIQUE constraint failed")) {
+    if (error.message.includes("unique") || error.code === "23505") {
       return res.status(400).json({ error: "Ce code de suivi existe déjà" });
     }
     res.status(500).json({ error: "Erreur lors de la création" });
@@ -119,21 +162,23 @@ app.post("/api/admin/applications", authenticateToken, (req, res) => {
 });
 
 // Admin: Update application
-app.put("/api/admin/applications/:id", authenticateToken, (req, res) => {
+app.put("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { tracking_code, first_name, last_name, status, comment, last_updated } = req.body;
   const final_last_updated = last_updated || new Date().toISOString();
 
   try {
-    const stmt = db.prepare(`
-      UPDATE applications 
-      SET tracking_code = ?, first_name = ?, last_name = ?, status = ?, last_updated = ?, comment = ?
-      WHERE id = ?
-    `);
-    const result = stmt.run(tracking_code, first_name, last_name, status, final_last_updated, comment, id);
-    
-    if (result.changes === 0) {
-      return res.status(404).json({ error: "Dossier non trouvé" });
+    let result;
+    if (isPostgres) {
+      result = await db.query(
+        "UPDATE applications SET tracking_code = $1, first_name = $2, last_name = $3, status = $4, last_updated = $5, comment = $6 WHERE id = $7",
+        [tracking_code, first_name, last_name, status, final_last_updated, comment, id]
+      );
+      if (result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
+    } else {
+      const stmt = db.prepare("UPDATE applications SET tracking_code = ?, first_name = ?, last_name = ?, status = ?, last_updated = ?, comment = ? WHERE id = ?");
+      const resStmt = stmt.run(tracking_code, first_name, last_name, status, final_last_updated, comment, id);
+      if (resStmt.changes === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     }
     res.json({ success: true });
   } catch (error: any) {
@@ -142,15 +187,22 @@ app.put("/api/admin/applications/:id", authenticateToken, (req, res) => {
 });
 
 // Admin: Delete application
-app.delete("/api/admin/applications/:id", authenticateToken, (req, res) => {
+app.delete("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const stmt = db.prepare("DELETE FROM applications WHERE id = ?");
-  const result = stmt.run(id);
-
-  if (result.changes === 0) {
-    return res.status(404).json({ error: "Dossier non trouvé" });
+  try {
+    let result;
+    if (isPostgres) {
+      result = await db.query("DELETE FROM applications WHERE id = $1", [id]);
+      if (result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
+    } else {
+      const stmt = db.prepare("DELETE FROM applications WHERE id = ?");
+      const resStmt = stmt.run(id);
+      if (resStmt.changes === 0) return res.status(404).json({ error: "Dossier non trouvé" });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur lors de la suppression" });
   }
-  res.json({ success: true });
 });
 
 // --- VITE MIDDLEWARE ---

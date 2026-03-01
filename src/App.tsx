@@ -692,9 +692,25 @@ const AdminLogin = () => {
 const AdminDashboard = () => {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<{ database: string, isPostgres: boolean } | null>(null);
   const [editingApp, setEditingApp] = useState<Partial<Application> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
+
+  const fetchStatus = async () => {
+    const token = localStorage.getItem("admin_token");
+    try {
+      const response = await fetch("/api/admin/status", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStatus(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch status");
+    }
+  };
 
   const fetchApps = async () => {
     const token = localStorage.getItem("admin_token");
@@ -717,6 +733,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchApps();
+    fetchStatus();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -776,7 +793,17 @@ const AdminDashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div className="space-y-1">
             <h1 className="text-4xl font-extrabold text-slate-900 font-display tracking-tight">Tableau de Bord</h1>
-            <p className="text-slate-500 font-medium">Gestion centralisée des dossiers de permis de conduire</p>
+            <div className="flex items-center gap-3">
+              <p className="text-slate-500 font-medium">Gestion centralisée des dossiers</p>
+              {status && (
+                <div className={cn(
+                  "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
+                  status.isPostgres ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                )}>
+                  Stockage : {status.database}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <button 
