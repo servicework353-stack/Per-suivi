@@ -12,7 +12,8 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database("permis.db");
+const dbPath = process.env.DATABASE_PATH || "permis.db";
+const db = new Database(dbPath);
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("admin123", 10);
 
@@ -154,7 +155,7 @@ app.delete("/api/admin/applications/:id", authenticateToken, (req, res) => {
 
 // --- VITE MIDDLEWARE ---
 async function startServer() {
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
