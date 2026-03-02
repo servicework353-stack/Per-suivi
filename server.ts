@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import compression from "compression";
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ if (isPostgres) {
 }
 
 const app = express();
+app.use(compression());
 app.use(express.json());
 
 // Auth Middleware
@@ -216,7 +218,11 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, "dist")));
+    // Cache static assets for 1 year
+    app.use(express.static(path.join(__dirname, "dist"), {
+      maxAge: '1y',
+      immutable: true
+    }));
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
@@ -224,6 +230,15 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    
+    // Keep-Alive: Ping itself every 10 minutes if APP_URL is set
+    const appUrl = process.env.APP_URL;
+    if (appUrl) {
+      console.log(`Keep-Alive active: Pinging ${appUrl} every 10 minutes`);
+      setInterval(() => {
+        fetch(appUrl).catch(() => {});
+      }, 10 * 60 * 1000);
+    }
   });
 }
 
