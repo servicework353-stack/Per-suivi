@@ -898,6 +898,27 @@ const AdminDashboard = () => {
     navigate("/admin");
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'photo_url' | 'id_card_url') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const base64 = await fileToBase64(file);
+        setEditingApp({ ...editingApp, [field]: base64 });
+      } catch (err) {
+        alert("Erreur lors de la lecture du fichier");
+      }
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
 
   return (
@@ -1137,24 +1158,36 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">URL Photo (Portrait)</label>
-                    <input 
-                      type="text" 
-                      value={editingApp?.photo_url || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, photo_url: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Lien vers la photo"
-                    />
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Photo de l'usager (Portrait)</label>
+                    <div className="space-y-3">
+                      {editingApp?.photo_url && (
+                        <div className="w-20 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          <img src={editingApp.photo_url} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'photo_url')}
+                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">URL Pièce d'Identité</label>
-                    <input 
-                      type="text" 
-                      value={editingApp?.id_card_url || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, id_card_url: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Lien vers le scan de la pièce"
-                    />
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pièce d'Identité (Recto/Verso)</label>
+                    <div className="space-y-3">
+                      {editingApp?.id_card_url && (
+                        <div className="w-32 h-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          <img src={editingApp.id_card_url} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'id_card_url')}
+                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div>

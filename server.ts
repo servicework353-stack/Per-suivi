@@ -92,7 +92,8 @@ if (isPostgres) {
 
 const app = express();
 app.use(compression());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
