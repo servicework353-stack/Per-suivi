@@ -30,23 +30,39 @@ if (isPostgres) {
     ssl: { rejectUnauthorized: false }
   });
   
-  // Initialize Postgres Table
-  db.query(`
-    CREATE TABLE IF NOT EXISTS applications (
-      id SERIAL PRIMARY KEY,
-      tracking_code TEXT UNIQUE NOT NULL,
-      first_name TEXT,
-      last_name TEXT,
-      address TEXT,
-      phone TEXT,
-      license_category TEXT,
-      photo_url TEXT,
-      id_card_url TEXT,
-      status TEXT NOT NULL,
-      last_updated TEXT NOT NULL,
-      comment TEXT
-    );
-  `).then(() => console.log("PostgreSQL Table Ready")).catch(console.error);
+  // Initialize Postgres Table & Migrations
+  const initDb = async () => {
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS applications (
+          id SERIAL PRIMARY KEY,
+          tracking_code TEXT UNIQUE NOT NULL,
+          first_name TEXT,
+          last_name TEXT,
+          status TEXT NOT NULL,
+          last_updated TEXT NOT NULL,
+          comment TEXT
+        );
+      `);
+
+      // Add new columns if they don't exist
+      const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
+      for (const col of columns) {
+        await db.query(`
+          DO $$ 
+          BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='applications' AND column_name='${col}') THEN 
+              ALTER TABLE applications ADD COLUMN ${col} TEXT; 
+            END IF; 
+          END $$;
+        `);
+      }
+      console.log("PostgreSQL Database & Migrations Ready");
+    } catch (err) {
+      console.error("Database init error:", err);
+    }
+  };
+  initDb();
 } else {
   console.log("--- DEMO MODE: Using SQLite (Data will be lost on restart) ---");
   const dbPath = process.env.DATABASE_PATH || "permis.db";
@@ -57,16 +73,21 @@ if (isPostgres) {
       tracking_code TEXT UNIQUE NOT NULL,
       first_name TEXT,
       last_name TEXT,
-      address TEXT,
-      phone TEXT,
-      license_category TEXT,
-      photo_url TEXT,
-      id_card_url TEXT,
       status TEXT NOT NULL,
       last_updated TEXT NOT NULL,
       comment TEXT
     );
   `);
+  
+  // SQLite Migrations
+  const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
+  for (const col of columns) {
+    try {
+      db.exec(`ALTER TABLE applications ADD COLUMN ${col} TEXT;`);
+    } catch (e) {
+      // Column probably already exists
+    }
+  }
 }
 
 const app = express();
