@@ -37,6 +37,11 @@ if (isPostgres) {
       tracking_code TEXT UNIQUE NOT NULL,
       first_name TEXT,
       last_name TEXT,
+      address TEXT,
+      phone TEXT,
+      license_category TEXT,
+      photo_url TEXT,
+      id_card_url TEXT,
       status TEXT NOT NULL,
       last_updated TEXT NOT NULL,
       comment TEXT
@@ -52,6 +57,11 @@ if (isPostgres) {
       tracking_code TEXT UNIQUE NOT NULL,
       first_name TEXT,
       last_name TEXT,
+      address TEXT,
+      phone TEXT,
+      license_category TEXT,
+      photo_url TEXT,
+      id_card_url TEXT,
       status TEXT NOT NULL,
       last_updated TEXT NOT NULL,
       comment TEXT
@@ -140,19 +150,19 @@ app.get("/api/admin/applications", authenticateToken, async (req, res) => {
 
 // Admin: Create application
 app.post("/api/admin/applications", authenticateToken, async (req, res) => {
-  const { tracking_code, first_name, last_name, status, comment } = req.body;
+  const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment } = req.body;
   const last_updated = new Date().toISOString();
 
   try {
     if (isPostgres) {
       const result = await db.query(
-        "INSERT INTO applications (tracking_code, first_name, last_name, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-        [tracking_code, first_name, last_name, status, last_updated, comment]
+        "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
+        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment]
       );
       res.status(201).json({ id: result.rows[0].id });
     } else {
-      const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?)");
-      const result = stmt.run(tracking_code, first_name, last_name, status, last_updated, comment);
+      const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const result = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment);
       res.status(201).json({ id: result.lastInsertRowid });
     }
   } catch (error: any) {
@@ -166,20 +176,20 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
 // Admin: Update application
 app.put("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { tracking_code, first_name, last_name, status, comment, last_updated } = req.body;
+  const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment, last_updated } = req.body;
   const final_last_updated = last_updated || new Date().toISOString();
 
   try {
     let result;
     if (isPostgres) {
       result = await db.query(
-        "UPDATE applications SET tracking_code = $1, first_name = $2, last_name = $3, status = $4, last_updated = $5, comment = $6 WHERE id = $7",
-        [tracking_code, first_name, last_name, status, final_last_updated, comment, id]
+        "UPDATE applications SET tracking_code = $1, first_name = $2, last_name = $3, address = $4, phone = $5, license_category = $6, photo_url = $7, id_card_url = $8, status = $9, last_updated = $10, comment = $11 WHERE id = $12",
+        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, id]
       );
       if (result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     } else {
-      const stmt = db.prepare("UPDATE applications SET tracking_code = ?, first_name = ?, last_name = ?, status = ?, last_updated = ?, comment = ? WHERE id = ?");
-      const resStmt = stmt.run(tracking_code, first_name, last_name, status, final_last_updated, comment, id);
+      const stmt = db.prepare("UPDATE applications SET tracking_code = ?, first_name = ?, last_name = ?, address = ?, phone = ?, license_category = ?, photo_url = ?, id_card_url = ?, status = ?, last_updated = ?, comment = ? WHERE id = ?");
+      const resStmt = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, id);
       if (resStmt.changes === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     }
     res.json({ success: true });
@@ -209,7 +219,7 @@ app.delete("/api/admin/applications/:id", authenticateToken, async (req, res) =>
 
 // --- VITE MIDDLEWARE ---
 async function startServer() {
-  const PORT = process.env.PORT || 3000;
+  const PORT = 3000;
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
