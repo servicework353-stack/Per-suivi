@@ -389,8 +389,15 @@ const TrackingResultPage = () => {
       if (!code) return;
       setLoading(true);
       setError("");
+      setResult(null); // Clear previous result to avoid stale data display
       try {
-        const response = await fetch(`/api/track/${code}`);
+        const response = await fetch(`/api/track/${code}`, {
+          cache: "no-store", // Ensure we bypass browser cache
+          headers: {
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache"
+          }
+        });
         if (!response.ok) {
           throw new Error(response.status === 404 ? "Dossier non trouvé. Vérifiez votre code." : "Une erreur est survenue.");
         }

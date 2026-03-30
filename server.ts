@@ -129,8 +129,10 @@ app.get("/api/track/:code", async (req, res) => {
     if (!application) {
       return res.status(404).json({ error: "Dossier non trouvé" });
     }
-    // Cache for 1 minute to reduce DB load on frequent refreshes
-    res.set('Cache-Control', 'public, max-age=60');
+    // Ensure users always get the latest data by disabling caching for this endpoint
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.json(application);
   } catch (err) {
     res.status(500).json({ error: "Erreur serveur" });
