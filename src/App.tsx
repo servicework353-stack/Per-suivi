@@ -484,6 +484,7 @@ const TrackingResultPage = () => {
                                 alt="Photo du bénéficiaire" 
                                 className="w-full h-full object-cover"
                                 referrerPolicy="no-referrer"
+                                loading="lazy"
                               />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
@@ -604,6 +605,7 @@ const TrackingResultPage = () => {
                                     alt="Pièce d'identité" 
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     referrerPolicy="no-referrer"
+                                    loading="lazy"
                                   />
                                 ) : (
                                   <div className="w-full h-full flex flex-col items-center justify-center text-white/20">
@@ -878,6 +880,22 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEdit = async (app: Application) => {
+    const token = localStorage.getItem("admin_token");
+    try {
+      const response = await fetch(`/api/admin/applications/${app.id}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const fullApp = await response.json();
+        setEditingApp(fullApp);
+        setIsModalOpen(true);
+      }
+    } catch (err) {
+      alert("Erreur lors du chargement des détails");
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (!confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) return;
     const token = localStorage.getItem("admin_token");
@@ -992,7 +1010,7 @@ const AdminDashboard = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
-                          onClick={() => { setEditingApp(app); setIsModalOpen(true); }}
+                          onClick={() => handleEdit(app)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -1032,7 +1050,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center gap-3 pt-2">
                   <button 
-                    onClick={() => { setEditingApp(app); setIsModalOpen(true); }}
+                    onClick={() => handleEdit(app)}
                     className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
                   >
                     <Edit2 className="w-4 h-4" /> Modifier

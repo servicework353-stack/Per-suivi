@@ -27,7 +27,10 @@ if (isPostgres) {
   console.log("--- PRODUCTION MODE: Using PostgreSQL ---");
   db = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
   });
   
   // Initialize Postgres Table & Migrations
@@ -126,6 +129,8 @@ app.get("/api/track/:code", async (req, res) => {
     if (!application) {
       return res.status(404).json({ error: "Dossier non trouvé" });
     }
+    // Cache for 1 minute to reduce DB load on frequent refreshes
+    res.set('Cache-Control', 'public, max-age=60');
     res.json(application);
   } catch (err) {
     res.status(500).json({ error: "Erreur serveur" });
@@ -154,17 +159,36 @@ app.get("/api/admin/status", authenticateToken, (req, res) => {
   });
 });
 
-// Admin: Get all applications
+// Admin: Get all applications (Optimized: No heavy images in list)
 app.get("/api/admin/applications", authenticateToken, async (req, res) => {
   try {
     let applications;
+    const query = "SELECT id, tracking_code, first_name, last_name, status, last_updated, comment, phone, address, license_category FROM applications ORDER BY last_updated DESC";
     if (isPostgres) {
-      const result = await db.query("SELECT * FROM applications ORDER BY last_updated DESC");
+      const result = await db.query(query);
       applications = result.rows;
     } else {
-      applications = db.prepare("SELECT * FROM applications ORDER BY last_updated DESC").all();
+      applications = db.prepare(query).all();
     }
     res.json(applications);
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Admin: Get single application (Full details including images)
+app.get("/api/admin/applications/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    let application;
+    if (isPostgres) {
+      const result = await db.query("SELECT * FROM applications WHERE id = $1", [id]);
+      application = result.rows[0];
+    } else {
+      application = db.prepare("SELECT * FROM applications WHERE id = ?").get(id);
+    }
+    if (!application) return res.status(404).json({ error: "Dossier non trouvé" });
+    res.json(application);
   } catch (err) {
     res.status(500).json({ error: "Erreur serveur" });
   }
