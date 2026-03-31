@@ -12,6 +12,11 @@ import compression from "compression";
 
 dotenv.config();
 
+console.log("Environment check:");
+console.log("ADMIN_USERNAME defined:", !!process.env.ADMIN_USERNAME);
+console.log("ADMIN_PASSWORD defined:", !!process.env.ADMIN_PASSWORD);
+console.log("JWT_SECRET defined:", !!process.env.JWT_SECRET);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -150,16 +155,16 @@ app.post("/api/admin/login", (req, res) => {
   const u = String(username || "").trim();
   const p = String(password || "").trim();
 
-  if (!u || !p) {
-    return res.status(400).json({ error: "Identifiant et mot de passe requis." });
-  }
-
+  console.log(`Login attempt for user: "${u}"`);
+  console.log(`Configured ADMIN_USERNAME: "${ADMIN_USERNAME}"`);
+  
   if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
+    console.log("Login successful");
     const token = jwt.sign({ username: u }, JWT_SECRET, { expiresIn: "24h" });
     return res.json({ token });
   }
   
-  console.log(`Login failed for user: ${u}. Expected: ${ADMIN_USERNAME}`);
+  console.log("Login failed: Invalid credentials");
   res.status(401).json({ error: "Identifiants invalides. Veuillez vérifier votre identifiant et votre mot de passe." });
 });
 
