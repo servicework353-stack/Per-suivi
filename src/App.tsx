@@ -391,7 +391,9 @@ const TrackingResultPage = () => {
       setError("");
       setResult(null); // Clear previous result to avoid stale data display
       try {
-        const response = await fetch(`/api/track/${code}`, {
+        // Add a timestamp to the URL to force cache busting at the browser/proxy level
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/track/${code}?t=${timestamp}`, {
           cache: "no-store", // Ensure we bypass browser cache
           headers: {
             "Pragma": "no-cache",

@@ -135,6 +135,7 @@ app.get("/api/track/:code", async (req, res) => {
     res.set('Expires', '0');
     res.json(application);
   } catch (err) {
+    console.error("Tracking API error:", err);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -276,12 +277,19 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Cache static assets for 1 year
+    // Serve static files with cache control
+    // We exclude index.html from aggressive caching to ensure app updates are seen
     app.use(express.static(path.join(__dirname, "dist"), {
       maxAge: '1y',
-      immutable: true
+      immutable: true,
+      index: false // Don't serve index.html automatically from here
     }));
+
     app.get("*", (req, res) => {
+      // Force no-cache for the entry point index.html
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
