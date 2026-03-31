@@ -15,9 +15,9 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key";
+const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || "admin").trim();
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "admin123").trim();
+const JWT_SECRET = (process.env.JWT_SECRET || "super-secret-key").trim();
 
 // --- DATABASE ABSTRACTION ---
 let db: any;

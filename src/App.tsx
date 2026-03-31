@@ -670,6 +670,13 @@ const AdminLogin = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const token = localStorage.getItem("admin_token");
+    if (token) {
+      navigate("/admin/dashboard");
+    }
+  }, [navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -686,8 +693,14 @@ const AdminLogin = () => {
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Identifiants invalides");
+        let errorMessage = "Identifiants invalides";
+        try {
+          const errData = await response.json();
+          errorMessage = errData.error || errorMessage;
+        } catch (e) {
+          // Not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       const { token } = await response.json();
@@ -701,115 +714,125 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-slate-50 relative overflow-hidden">
-      {/* Background Decorative Elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-50" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-50" />
-      </div>
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="flex-1 flex items-center justify-center p-4 bg-slate-50 relative overflow-hidden">
+        {/* Background Decorative Elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-50" />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-50" />
+        </div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row relative z-10"
-      >
-        {/* Left Side: Image/Branding */}
-        <div className="hidden md:block md:w-1/2 relative">
-          <img 
-            src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=1000" 
-            alt="Office background" 
-            className="absolute inset-0 w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-blue-600/90 mix-blend-multiply" />
-          <div className="absolute inset-0 p-12 flex flex-col justify-between text-white">
-            <div>
-              <div className="flex items-center gap-2 mb-8">
-                <FileText className="w-8 h-8" />
-                <span className="font-bold text-2xl tracking-tight">PermisSuivi</span>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row relative z-10"
+        >
+          {/* Left Side: Image/Branding */}
+          <div className="hidden md:block md:w-1/2 relative">
+            <img 
+              src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=1000" 
+              alt="Office background" 
+              className="absolute inset-0 w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-blue-600/90 mix-blend-multiply" />
+            <div className="absolute inset-0 p-12 flex flex-col justify-between text-white">
+              <div>
+                <div className="flex items-center gap-2 mb-8">
+                  <FileText className="w-8 h-8" />
+                  <span className="font-bold text-2xl tracking-tight">PermisSuivi</span>
+                </div>
+                <h2 className="text-4xl font-bold leading-tight mb-6">Gestion administrative simplifiée.</h2>
+                <p className="text-blue-100 text-lg">Accédez à l'interface de gestion pour mettre à jour les dossiers et informer les usagers en temps réel.</p>
               </div>
-              <h2 className="text-4xl font-bold leading-tight mb-6">Gestion administrative simplifiée.</h2>
-              <p className="text-blue-100 text-lg">Accédez à l'interface de gestion pour mettre à jour les dossiers et informer les usagers en temps réel.</p>
+              <div className="flex items-center gap-4 text-sm text-blue-200">
+                <div className="flex -space-x-2">
+                  {[1, 2, 3].map(i => (
+                    <img 
+                      key={i}
+                      src={`https://picsum.photos/seed/user${i}/100/100`} 
+                      className="w-8 h-8 rounded-full border-2 border-blue-600"
+                      alt="User"
+                      referrerPolicy="no-referrer"
+                    />
+                  ))}
+                </div>
+                <span>Rejoint par +500 agents</span>
+              </div>
             </div>
-            <div className="flex items-center gap-4 text-sm text-blue-200">
-              <div className="flex -space-x-2">
-                {[1, 2, 3].map(i => (
-                  <img 
-                    key={i}
-                    src={`https://picsum.photos/seed/user${i}/100/100`} 
-                    className="w-8 h-8 rounded-full border-2 border-blue-600"
-                    alt="User"
-                    referrerPolicy="no-referrer"
+          </div>
+
+          {/* Right Side: Login Form */}
+          <div className="w-full md:w-1/2 p-8 md:p-16">
+            <div className="mb-10">
+              <div className="md:hidden flex items-center gap-2 mb-6">
+                <div className="bg-blue-600 p-2 rounded-lg">
+                  <FileText className="text-white w-5 h-5" />
+                </div>
+                <span className="font-bold text-xl text-slate-900 tracking-tight">PermisSuivi</span>
+              </div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">Bon retour.</h2>
+              <p className="text-slate-500">Veuillez entrer vos identifiants pour continuer.</p>
+              
+              <div className="mt-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Accès Démo</p>
+                <p className="text-xs text-slate-600">Identifiant : <span className="font-bold">admin</span></p>
+                <p className="text-xs text-slate-600">Mot de passe : <span className="font-bold">admin123</span></p>
+              </div>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-6">
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-100 flex items-center gap-3"
+                >
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  {error}
+                </motion.div>
+              )}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Identifiant</label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input 
+                    type="text" 
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="admin"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
-                ))}
+                </div>
               </div>
-              <span>Rejoint par +500 agents</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Login Form */}
-        <div className="w-full md:w-1/2 p-8 md:p-16">
-          <div className="mb-10">
-            <div className="md:hidden flex items-center gap-2 mb-6">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <FileText className="text-white w-5 h-5" />
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Mot de passe</label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input 
+                    type="password" 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
               </div>
-              <span className="font-bold text-xl text-slate-900 tracking-tight">PermisSuivi</span>
-            </div>
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">Bon retour.</h2>
-            <p className="text-slate-500">Veuillez entrer vos identifiants pour continuer.</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-100 flex items-center gap-3"
+              <button 
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-blue-200 active:scale-[0.98]"
               >
-                <AlertCircle className="w-5 h-5 shrink-0" />
-                {error}
-              </motion.div>
-            )}
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Identifiant</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
-                  type="text" 
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Mot de passe</label>
-              <div className="relative">
-                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                />
-              </div>
-            </div>
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-blue-200 active:scale-[0.98]"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Se connecter"}
-            </button>
-          </form>
-        </div>
-      </motion.div>
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Se connecter"}
+              </button>
+            </form>
+          </div>
+        </motion.div>
+      </main>
+      <Footer />
     </div>
   );
 };
@@ -947,11 +970,32 @@ const AdminDashboard = () => {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
+  const safeFormatDate = (dateStr: string) => {
+    try {
+      if (!dateStr) return "-";
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return "Date invalide";
+      return format(date, "dd/MM/yyyy HH:mm");
+    } catch (e) {
+      return "Date invalide";
+    }
+  };
+
+  if (loading) return (
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="flex-1 flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+      <Footer />
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-10">
-      <div className="max-w-7xl mx-auto">
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="flex-1 bg-slate-50 p-4 md:p-10">
+        <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div className="space-y-1">
             <h1 className="text-4xl font-extrabold text-slate-900 font-display tracking-tight">Tableau de Bord</h1>
@@ -1015,7 +1059,7 @@ const AdminDashboard = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">
-                      {format(new Date(app.last_updated), "dd/MM/yyyy HH:mm")}
+                      {safeFormatDate(app.last_updated)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1056,7 +1100,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-500 font-medium">{app.first_name} {app.last_name}</span>
-                  <span className="text-slate-400">{format(new Date(app.last_updated), "dd/MM/yy")}</span>
+                  <span className="text-slate-400">{safeFormatDate(app.last_updated).split(' ')[0]}</span>
                 </div>
                 <div className="flex items-center gap-3 pt-2">
                   <button 
@@ -1086,170 +1130,173 @@ const AdminDashboard = () => {
           )}
         </div>
       </div>
+    </main>
 
-      {/* Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-white md:rounded-3xl shadow-2xl overflow-hidden h-full md:h-auto flex flex-col"
-            >
-              <div className="bg-slate-50 px-6 md:px-8 py-6 border-b border-slate-200 flex items-center justify-between shrink-0">
-                <h2 className="text-xl font-bold text-slate-900 font-display">
-                  {editingApp?.id ? "Modifier le Dossier" : "Nouveau Dossier"}
-                </h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 rounded-xl transition-colors">
-                  <Plus className="w-6 h-6 rotate-45" />
-                </button>
-              </div>
-              <form onSubmit={handleSave} className="p-6 md:p-8 space-y-6 overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Code de Suivi</label>
+    <Footer />
+
+    {/* Modal */}
+    <AnimatePresence>
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsModalOpen(false)}
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-2xl bg-white md:rounded-3xl shadow-2xl overflow-hidden h-full md:h-auto flex flex-col"
+          >
+            <div className="bg-slate-50 px-6 md:px-8 py-6 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <h2 className="text-xl font-bold text-slate-900 font-display">
+                {editingApp?.id ? "Modifier le Dossier" : "Nouveau Dossier"}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 rounded-xl transition-colors">
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            <form onSubmit={handleSave} className="p-6 md:p-8 space-y-6 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Code de Suivi</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editingApp?.tracking_code || ""}
+                    onChange={(e) => setEditingApp({ ...editingApp, tracking_code: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    placeholder="Ex: FR-2024-001"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Statut</label>
+                  <select 
+                    value={editingApp?.status || ""}
+                    onChange={(e) => setEditingApp({ ...editingApp, status: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+                  >
+                    {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Prénom</label>
+                  <input 
+                    type="text" 
+                    value={editingApp?.first_name || ""}
+                    onChange={(e) => setEditingApp({ ...editingApp, first_name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    placeholder="Prénom de l'usager"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Nom</label>
+                  <input 
+                    type="text" 
+                    value={editingApp?.last_name || ""}
+                    onChange={(e) => setEditingApp({ ...editingApp, last_name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    placeholder="Nom de l'usager"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Téléphone</label>
+                  <input 
+                    type="text" 
+                    value={editingApp?.phone || ""}
+                    onChange={(e) => setEditingApp({ ...editingApp, phone: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    placeholder="Ex: +225 0102030405"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Catégorie Permis</label>
+                  <input 
+                    type="text" 
+                    value={editingApp?.license_category || ""}
+                    onChange={(e) => setEditingApp({ ...editingApp, license_category: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    placeholder="Ex: B, BC, D..."
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Adresse</label>
+                  <input 
+                    type="text" 
+                    value={editingApp?.address || ""}
+                    onChange={(e) => setEditingApp({ ...editingApp, address: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    placeholder="Adresse complète de résidence"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Photo de l'usager (Portrait)</label>
+                  <div className="space-y-3">
+                    {editingApp?.photo_url && (
+                      <div className="w-20 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                        <img src={editingApp.photo_url} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
                     <input 
-                      type="text" 
-                      required
-                      value={editingApp?.tracking_code || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, tracking_code: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Ex: FR-2024-001"
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'photo_url')}
+                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Statut</label>
-                    <select 
-                      value={editingApp?.status || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, status: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
-                    >
-                      {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Prénom</label>
-                    <input 
-                      type="text" 
-                      value={editingApp?.first_name || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, first_name: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Prénom de l'usager"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Nom</label>
-                    <input 
-                      type="text" 
-                      value={editingApp?.last_name || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, last_name: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Nom de l'usager"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Téléphone</label>
-                    <input 
-                      type="text" 
-                      value={editingApp?.phone || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, phone: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Ex: +225 0102030405"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Catégorie Permis</label>
-                    <input 
-                      type="text" 
-                      value={editingApp?.license_category || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, license_category: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Ex: B, BC, D..."
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Adresse</label>
-                    <input 
-                      type="text" 
-                      value={editingApp?.address || ""}
-                      onChange={(e) => setEditingApp({ ...editingApp, address: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Adresse complète de résidence"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Photo de l'usager (Portrait)</label>
-                    <div className="space-y-3">
-                      {editingApp?.photo_url && (
-                        <div className="w-20 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                          <img src={editingApp.photo_url} alt="Preview" className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'photo_url')}
-                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pièce d'Identité (Recto/Verso)</label>
-                    <div className="space-y-3">
-                      {editingApp?.id_card_url && (
-                        <div className="w-32 h-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                          <img src={editingApp.id_card_url} alt="Preview" className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'id_card_url')}
-                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      />
-                    </div>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Commentaire Administration</label>
-                  <textarea 
-                    rows={4}
-                    value={editingApp?.comment || ""}
-                    onChange={(e) => setEditingApp({ ...editingApp, comment: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
-                    placeholder="Détails sur l'avancement du dossier..."
-                  />
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pièce d'Identité (Recto/Verso)</label>
+                  <div className="space-y-3">
+                    {editingApp?.id_card_url && (
+                      <div className="w-32 h-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                        <img src={editingApp.id_card_url} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'id_card_url')}
+                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                  </div>
                 </div>
-                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6">
-                  <button 
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="order-2 sm:order-1 px-8 py-3.5 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all text-center"
-                  >
-                    Annuler
-                  </button>
-                  <button 
-                    type="submit"
-                    className="order-1 sm:order-2 bg-blue-600 text-white px-10 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 text-center"
-                  >
-                    Enregistrer le Dossier
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Commentaire Administration</label>
+                <textarea 
+                  rows={4}
+                  value={editingApp?.comment || ""}
+                  onChange={(e) => setEditingApp({ ...editingApp, comment: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+                  placeholder="Détails sur l'avancement du dossier..."
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6">
+                <button 
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="order-2 sm:order-1 px-8 py-3.5 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all text-center"
+                >
+                  Annuler
+                </button>
+                <button 
+                  type="submit"
+                  className="order-1 sm:order-2 bg-blue-600 text-white px-10 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 text-center"
+                >
+                  Enregistrer le Dossier
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  </div>
+);
 };
 
 const TrackingWrapper = () => {
@@ -1282,14 +1329,7 @@ export default function App() {
           <Route path="/track/:code" element={<TrackingWrapper />} />
 
           {/* Admin Routes */}
-          <Route path="/admin" element={
-            <>
-              <Header />
-              <AdminLogin />
-              <Footer />
-            </>
-          } />
-          
+          <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
           {/* Catch-all */}
