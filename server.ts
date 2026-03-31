@@ -80,6 +80,8 @@ if (isPostgres) {
       last_updated TEXT NOT NULL,
       comment TEXT
     );
+    CREATE INDEX IF NOT EXISTS idx_tracking_code ON applications(tracking_code);
+    CREATE INDEX IF NOT EXISTS idx_last_updated ON applications(last_updated);
   `);
   
   // SQLite Migrations
@@ -117,18 +119,18 @@ const authenticateToken = (req: any, res: any, next: any) => {
 
 // Public: Get application by tracking code
 app.get("/api/track/:code", async (req, res) => {
-  const { code } = req.params;
+  const code = String(req.params.code || "").trim().toUpperCase();
   try {
     let application;
     if (isPostgres) {
-      const result = await db.query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
+      const result = await db.query("SELECT * FROM applications WHERE UPPER(tracking_code) = $1", [code]);
       application = result.rows[0];
     } else {
-      application = db.prepare("SELECT * FROM applications WHERE tracking_code = ?").get(code);
+      application = db.prepare("SELECT * FROM applications WHERE UPPER(tracking_code) = ?").get(code);
     }
 
     if (!application) {
-      return res.status(404).json({ error: "Dossier non trouvé" });
+      return res.status(404).json({ error: "Dossier non trouvé. Vérifiez que vous avez bien saisi le code de suivi." });
     }
     // Ensure users always get the latest data by disabling caching for this endpoint
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -138,7 +140,7 @@ app.get("/api/track/:code", async (req, res) => {
     res.json(application);
   } catch (err) {
     console.error("Tracking API error:", err);
-    res.status(500).json({ error: "Erreur serveur" });
+    res.status(500).json({ error: "Erreur serveur lors de la recherche du dossier" });
   }
 });
 
@@ -148,11 +150,17 @@ app.post("/api/admin/login", (req, res) => {
   const u = String(username || "").trim();
   const p = String(password || "").trim();
 
+  if (!u || !p) {
+    return res.status(400).json({ error: "Identifiant et mot de passe requis." });
+  }
+
   if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
     const token = jwt.sign({ username: u }, JWT_SECRET, { expiresIn: "24h" });
     return res.json({ token });
   }
-  res.status(401).json({ error: "Identifiants invalides." });
+  
+  console.log(`Login failed for user: ${u}. Expected: ${ADMIN_USERNAME}`);
+  res.status(401).json({ error: "Identifiants invalides. Veuillez vérifier votre identifiant et votre mot de passe." });
 });
 
 // Admin: Get system status

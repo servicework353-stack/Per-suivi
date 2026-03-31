@@ -36,7 +36,13 @@ import {
   CreditCard,
   Image as ImageIcon,
   UserCircle,
-  X
+  X,
+  Copy,
+  RefreshCcw,
+  TrendingUp,
+  Users,
+  Check,
+  ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -397,41 +403,42 @@ const TrackingResultPage = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchResult = async () => {
-      if (!code) return;
-      setLoading(true);
-      setError("");
-      setResult(null); // Clear previous result to avoid stale data display
-      try {
-        // Add a timestamp to the URL to force cache busting at the browser/proxy level
-        const timestamp = new Date().getTime();
-        const response = await fetch(`/api/track/${code}?t=${timestamp}`, {
-          cache: "no-store", // Ensure we bypass browser cache
-          headers: {
-            "Pragma": "no-cache",
-            "Cache-Control": "no-cache"
-          }
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorMessage = "Une erreur est survenue.";
-          try {
-            const errData = JSON.parse(errorText);
-            errorMessage = errData.error || errorMessage;
-          } catch (e) {
-            if (response.status === 404) errorMessage = "Dossier non trouvé. Vérifiez votre code.";
-          }
-          throw new Error(errorMessage);
+  const fetchResult = async () => {
+    if (!code) return;
+    setLoading(true);
+    setError("");
+    setResult(null); // Clear previous result to avoid stale data display
+    try {
+      // Add a timestamp to the URL to force cache busting at the browser/proxy level
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/track/${code}?t=${timestamp}`, {
+        cache: "no-store", // Ensure we bypass browser cache
+        headers: {
+          "Pragma": "no-cache",
+          "Cache-Control": "no-cache"
         }
-        const data = await response.json();
-        setResult(data);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Une erreur est survenue.";
+        try {
+          const errData = JSON.parse(errorText);
+          errorMessage = errData.error || errorMessage;
+        } catch (e) {
+          if (response.status === 404) errorMessage = "Dossier non trouvé. Vérifiez votre code.";
+        }
+        throw new Error(errorMessage);
       }
-    };
+      const data = await response.json();
+      setResult(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchResult();
   }, [code]);
 
@@ -448,13 +455,23 @@ const TrackingResultPage = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <main className="flex-grow py-12 px-4">
         <div className="max-w-5xl mx-auto">
-          <button 
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold mb-8 transition-colors group"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            Retour à l'accueil
-          </button>
+          <div className="flex items-center justify-between gap-4 mb-8">
+            <button 
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold transition-colors group"
+            >
+              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+              Retour à l'accueil
+            </button>
+            <button 
+              onClick={() => fetchResult()}
+              className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold transition-colors group"
+              title="Actualiser les données"
+            >
+              <RefreshCcw className={cn("w-5 h-5", loading && "animate-spin")} />
+              Actualiser
+            </button>
+          </div>
 
           <AnimatePresence mode="wait">
             {error ? (
@@ -861,10 +878,13 @@ const AdminLogin = () => {
 const AdminDashboard = () => {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState<{ database: string, isPostgres: boolean } | null>(null);
   const [editingApp, setEditingApp] = useState<Partial<Application> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [copySuccess, setCopySuccess] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const fetchStatus = async () => {
@@ -913,31 +933,42 @@ const AdminDashboard = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
+    setError("");
     const token = localStorage.getItem("admin_token");
     const method = editingApp?.id ? "PUT" : "POST";
     const url = editingApp?.id ? `/api/admin/applications/${editingApp.id}` : "/api/admin/applications";
 
     try {
+      // Ensure tracking code is uppercase and trimmed
+      const appToSave = {
+        ...editingApp,
+        tracking_code: editingApp?.tracking_code?.trim().toUpperCase()
+      };
+
       const response = await fetch(url, {
         method,
         headers: { 
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify(editingApp),
+        body: JSON.stringify(appToSave),
       });
 
       if (!response.ok) {
         const errData = await response.json();
         setError(errData.error || "Erreur lors de l'enregistrement");
+        setSaving(false);
         return;
       }
 
       setIsModalOpen(false);
       setEditingApp(null);
-      fetchApps();
+      await fetchApps();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -951,9 +982,11 @@ const AdminDashboard = () => {
         const fullApp = await response.json();
         setEditingApp(fullApp);
         setIsModalOpen(true);
+      } else {
+        setError("Erreur lors du chargement des détails du dossier");
       }
     } catch (err) {
-      alert("Erreur lors du chargement des détails");
+      setError("Erreur lors du chargement des détails");
     }
   };
 
@@ -972,6 +1005,64 @@ const AdminDashboard = () => {
       fetchApps();
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  const handleCopyCode = (code: string, id: number) => {
+    navigator.clipboard.writeText(code);
+    setCopySuccess(id);
+    setTimeout(() => setCopySuccess(null), 2000);
+  };
+
+  const filteredApps = apps.filter(app => 
+    app.tracking_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${app.first_name} ${app.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (app.phone && app.phone.includes(searchTerm))
+  );
+
+  const stats = {
+    total: apps.length,
+    validated: apps.filter(a => a.status === "Validé" || a.status === "Permis disponible").length,
+    pending: apps.filter(a => a.status === "En attente" || a.status === "En cours de traitement").length,
+    rejected: apps.filter(a => a.status === "Rejeté").length,
+  };
+
+  const handleSeedData = async () => {
+    if (!window.confirm("Voulez-vous ajouter des données de test ?")) return;
+    const token = localStorage.getItem("admin_token");
+    const demoApps = [
+      { tracking_code: "FR-2024-001", first_name: "Jean", last_name: "Dupont", status: "Validé", address: "Abidjan, Cocody", phone: "+225 0102030405", license_category: "B", comment: "Dossier complet et validé." },
+      { tracking_code: "FR-2024-002", first_name: "Marie", last_name: "Kouassi", status: "En cours de traitement", address: "Yamoussoukro", phone: "+225 0708091011", license_category: "BC", comment: "En attente de signature finale." },
+      { tracking_code: "FR-2024-003", first_name: "Ahmed", last_name: "Traoré", status: "Rejeté", address: "Bouaké", phone: "+225 0506070809", license_category: "D", comment: "Photo non conforme." },
+    ];
+
+    try {
+      for (const app of demoApps) {
+        await fetch("/api/admin/applications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify(app),
+        });
+      }
+      fetchApps();
+    } catch (err) {
+      setError("Erreur lors de l'ajout des données de test");
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm("ATTENTION : Voulez-vous vraiment supprimer TOUS les dossiers ? Cette action est irréversible.")) return;
+    const token = localStorage.getItem("admin_token");
+    try {
+      for (const app of apps) {
+        await fetch(`/api/admin/applications/${app.id}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+      }
+      fetchApps();
+    } catch (err) {
+      setError("Erreur lors de la suppression des dossiers");
     }
   };
 
@@ -996,7 +1087,7 @@ const AdminDashboard = () => {
         const base64 = await fileToBase64(file);
         setEditingApp({ ...editingApp, [field]: base64 });
       } catch (err) {
-        alert("Erreur lors de la lecture du fichier");
+        setError("Erreur lors de la lecture du fichier");
       }
     }
   };
@@ -1036,141 +1127,235 @@ const AdminDashboard = () => {
               </button>
             </div>
           )}
+
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-          <div className="space-y-1">
-            <h1 className="text-4xl font-extrabold text-slate-900 font-display tracking-tight">Tableau de Bord</h1>
+            <div className="space-y-1">
+              <h1 className="text-4xl font-extrabold text-slate-900 font-display tracking-tight">Tableau de Bord</h1>
+              <div className="flex items-center gap-3">
+                <p className="text-slate-500 font-medium">Gestion centralisée des dossiers</p>
+                {status && (
+                  <div className={cn(
+                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
+                    status.isPostgres ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                  )}>
+                    Stockage : {status.database}
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="flex items-center gap-3">
-              <p className="text-slate-500 font-medium">Gestion centralisée des dossiers</p>
-              {status && (
-                <div className={cn(
-                  "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
-                  status.isPostgres ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
-                )}>
-                  Stockage : {status.database}
-                </div>
-              )}
+              <button 
+                onClick={() => fetchApps()}
+                className="bg-white text-slate-600 p-3.5 rounded-2xl font-bold border border-slate-200 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                title="Actualiser"
+              >
+                <RefreshCcw className={cn("w-5 h-5", loading && "animate-spin")} />
+              </button>
+              <button 
+                onClick={() => { setEditingApp({ status: STATUS_OPTIONS[0] }); setIsModalOpen(true); }}
+                className="flex-1 md:flex-none bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
+              >
+                <Plus className="w-5 h-5" /> <span className="hidden sm:inline">Nouveau Dossier</span><span className="sm:hidden">Ajouter</span>
+              </button>
+              <button 
+                onClick={handleSeedData}
+                className="bg-white text-emerald-600 p-3.5 md:px-6 md:py-3.5 rounded-2xl font-bold border border-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-50 transition-all active:scale-95 shadow-sm"
+                title="Ajouter des données de test"
+              >
+                <Plus className="w-5 h-5" /> <span className="hidden md:inline">Données Démo</span>
+              </button>
+              <button 
+                onClick={handleClearAll}
+                className="bg-white text-red-600 p-3.5 md:px-6 md:py-3.5 rounded-2xl font-bold border border-red-100 flex items-center justify-center gap-2 hover:bg-red-50 transition-all active:scale-95 shadow-sm"
+                title="Tout supprimer"
+              >
+                <Trash2 className="w-5 h-5" /> <span className="hidden md:inline">Tout Effacer</span>
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="bg-white text-slate-600 p-3.5 md:px-6 md:py-3.5 rounded-2xl font-bold border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                title="Déconnexion"
+              >
+                <LogOut className="w-5 h-5" /> <span className="hidden md:inline">Déconnexion</span>
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => { setEditingApp({ status: STATUS_OPTIONS[0] }); setIsModalOpen(true); }}
-              className="flex-1 md:flex-none bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
-            >
-              <Plus className="w-5 h-5" /> <span className="hidden sm:inline">Nouveau Dossier</span><span className="sm:hidden">Ajouter</span>
-            </button>
-            <button 
-              onClick={handleLogout}
-              className="bg-white text-slate-600 p-3.5 md:px-6 md:py-3.5 rounded-2xl font-bold border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-              title="Déconnexion"
-            >
-              <LogOut className="w-5 h-5" /> <span className="hidden md:inline">Déconnexion</span>
-            </button>
-          </div>
-        </div>
 
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-          {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Code</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Usager</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Téléphone</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Statut</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Mise à Jour</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {apps.map((app) => (
-                  <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-4 font-bold text-slate-900 font-display">{app.tracking_code}</td>
-                    <td className="px-6 py-4 text-slate-600 font-medium">{app.first_name} {app.last_name}</td>
-                    <td className="px-6 py-4 text-slate-500 font-mono text-xs">{app.phone || "-"}</td>
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "inline-flex items-center px-3 py-1 rounded-full text-xs font-bold",
-                        app.status === "Validé" || app.status === "Permis disponible" ? "bg-emerald-100 text-emerald-700" :
-                        app.status === "Rejeté" ? "bg-red-100 text-red-700" :
-                        "bg-blue-100 text-blue-700"
-                      )}>
-                        {app.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-500">
-                      {safeFormatDate(app.last_updated)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => handleEdit(app)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(app.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="md:hidden divide-y divide-slate-100">
-            {apps.map((app) => (
-              <div key={app.id} className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-lg text-slate-900 font-display">{app.tracking_code}</span>
-                  <span className={cn(
-                    "inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                    app.status === "Validé" || app.status === "Permis disponible" ? "bg-emerald-100 text-emerald-700" :
-                    app.status === "Rejeté" ? "bg-red-100 text-red-700" :
-                    "bg-blue-100 text-blue-700"
-                  )}>
-                    {app.status}
-                  </span>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { label: "Total Dossiers", value: stats.total, icon: FileText, color: "blue" },
+              { label: "Validés", value: stats.validated, icon: CheckCircle2, color: "emerald" },
+              { label: "En Attente", value: stats.pending, icon: Clock, color: "amber" },
+              { label: "Rejetés", value: stats.rejected, icon: AlertCircle, color: "red" },
+            ].map((stat, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm"
+              >
+                <div className={`w-10 h-10 rounded-xl bg-${stat.color}-50 flex items-center justify-center mb-4`}>
+                  <stat.icon className={`w-5 h-5 text-${stat.color}-600`} />
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500 font-medium">{app.first_name} {app.last_name}</span>
-                  <span className="text-slate-400">{safeFormatDate(app.last_updated).split(' ')[0]}</span>
-                </div>
-                <div className="flex items-center gap-3 pt-2">
-                  <button 
-                    onClick={() => handleEdit(app)}
-                    className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
-                  >
-                    <Edit2 className="w-4 h-4" /> Modifier
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(app.id)}
-                    className="flex-1 bg-red-50 text-red-600 py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
-                  >
-                    <Trash2 className="w-4 h-4" /> Supprimer
-                  </button>
-                </div>
-              </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
+                <p className="text-2xl font-black text-slate-900 font-display tracking-tight">{stat.value}</p>
+              </motion.div>
             ))}
           </div>
 
-          {apps.length === 0 && (
-            <div className="px-6 py-20 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FileText className="w-10 h-10 text-slate-200" />
-              </div>
-              <p className="text-slate-400 italic font-medium">Aucun dossier enregistré pour le moment.</p>
+          {/* Search Bar */}
+          <div className="mb-8 relative group">
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+            <input 
+              type="text"
+              placeholder="Rechercher par code, nom ou téléphone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white border border-slate-200 rounded-[24px] pl-14 pr-14 py-5 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm text-slate-600 font-medium"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")}
+                className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          <div className="bg-white rounded-[32px] shadow-xl border border-slate-200 overflow-hidden">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 border-b border-slate-200">
+                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Dossier</th>
+                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Usager</th>
+                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Statut</th>
+                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Mise à Jour</th>
+                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredApps.map((app) => (
+                    <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-3">
+                          <span className="font-black text-slate-900 font-display tracking-tight">{app.tracking_code}</span>
+                          <button 
+                            onClick={() => handleCopyCode(app.tracking_code, app.id)}
+                            className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Copier le code"
+                          >
+                            {copySuccess === app.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex flex-col">
+                          <span className="text-slate-900 font-bold">{app.first_name} {app.last_name}</span>
+                          <span className="text-slate-400 text-xs font-medium">{app.phone || "Pas de téléphone"}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className={cn(
+                          "inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border",
+                          app.status === "Validé" || app.status === "Permis disponible" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                          app.status === "Rejeté" ? "bg-red-50 text-red-700 border-red-100" :
+                          "bg-blue-50 text-blue-700 border-blue-100"
+                        )}>
+                          {app.status}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex flex-col">
+                          <span className="text-slate-600 font-bold text-sm">{safeFormatDate(app.last_updated).split(' ')[0]}</span>
+                          <span className="text-slate-400 text-[10px] font-medium uppercase tracking-tighter">{safeFormatDate(app.last_updated).split(' ').slice(1).join(' ')}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                          <button 
+                            onClick={() => handleEdit(app)}
+                            className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                            title="Modifier"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(app.id)}
+                            className="p-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredApps.map((app) => (
+                <div key={app.id} className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-lg text-slate-900 font-display tracking-tight">{app.tracking_code}</span>
+                      <button onClick={() => handleCopyCode(app.tracking_code, app.id)} className="text-slate-300">
+                        {copySuccess === app.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <span className={cn(
+                      "inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                      app.status === "Validé" || app.status === "Permis disponible" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                      app.status === "Rejeté" ? "bg-red-50 text-red-700 border-red-100" :
+                      "bg-blue-50 text-blue-700 border-blue-100"
+                    )}>
+                      {app.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-slate-900 font-bold">{app.first_name} {app.last_name}</span>
+                      <span className="text-slate-400 text-xs">{app.phone || "-"}</span>
+                    </div>
+                    <span className="text-slate-400 text-xs font-medium">{safeFormatDate(app.last_updated).split(' ')[0]}</span>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <button 
+                      onClick={() => handleEdit(app)}
+                      className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    >
+                      <Edit2 className="w-4 h-4" /> Modifier
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(app.id)}
+                      className="flex-1 bg-red-50 text-red-600 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" /> Supprimer
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredApps.length === 0 && (
+              <div className="px-6 py-24 text-center">
+                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                  <Search className="w-10 h-10 text-slate-200" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Aucun résultat trouvé</h3>
+                <p className="text-slate-400 font-medium">Essayez de modifier vos critères de recherche.</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
 
     <Footer />
 
