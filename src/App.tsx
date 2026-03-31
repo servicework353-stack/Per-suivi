@@ -11,7 +11,8 @@ import {
   Navigate, 
   useNavigate,
   Link,
-  useParams
+  useParams,
+  useLocation
 } from "react-router-dom";
 import { 
   Search, 
@@ -1251,6 +1252,17 @@ const AdminDashboard = () => {
   );
 };
 
+const TrackingWrapper = () => {
+  const location = useLocation();
+  return (
+    <>
+      <Header />
+      <TrackingResultPage key={location.key} />
+      <Footer />
+    </>
+  );
+};
+
 // --- MAIN APP ---
 
 export default function App() {
@@ -1267,13 +1279,7 @@ export default function App() {
             </>
           } />
 
-          <Route path="/track/:code" element={
-            <>
-              <Header />
-              <TrackingResultPage />
-              <Footer />
-            </>
-          } />
+          <Route path="/track/:code" element={<TrackingWrapper />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={

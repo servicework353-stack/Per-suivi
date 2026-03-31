@@ -94,6 +94,7 @@ if (isPostgres) {
 }
 
 const app = express();
+app.disable('etag');
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -133,6 +134,7 @@ app.get("/api/track/:code", async (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
     res.json(application);
   } catch (err) {
     console.error("Tracking API error:", err);
@@ -225,8 +227,8 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
 // Admin: Update application
 app.put("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment, last_updated } = req.body;
-  const final_last_updated = last_updated || new Date().toISOString();
+  const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment } = req.body;
+  const final_last_updated = new Date().toISOString();
 
   try {
     let result;
@@ -290,6 +292,7 @@ async function startServer() {
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
+      res.set('Surrogate-Control', 'no-store');
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
