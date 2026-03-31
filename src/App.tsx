@@ -35,7 +35,8 @@ import {
   Phone,
   CreditCard,
   Image as ImageIcon,
-  UserCircle
+  UserCircle,
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -385,6 +386,17 @@ const TrackingResultPage = () => {
   const [result, setResult] = useState<Application | null>(null);
   const [error, setError] = useState("");
 
+  const safeFormatDate = (dateStr: string) => {
+    try {
+      if (!dateStr) return "-";
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return "Date invalide";
+      return format(date, "d MMMM yyyy", { locale: fr });
+    } catch (e) {
+      return "Date invalide";
+    }
+  };
+
   useEffect(() => {
     const fetchResult = async () => {
       if (!code) return;
@@ -402,7 +414,15 @@ const TrackingResultPage = () => {
           }
         });
         if (!response.ok) {
-          throw new Error(response.status === 404 ? "Dossier non trouvé. Vérifiez votre code." : "Une erreur est survenue.");
+          const errorText = await response.text();
+          let errorMessage = "Une erreur est survenue.";
+          try {
+            const errData = JSON.parse(errorText);
+            errorMessage = errData.error || errorMessage;
+          } catch (e) {
+            if (response.status === 404) errorMessage = "Dossier non trouvé. Vérifiez votre code.";
+          }
+          throw new Error(errorMessage);
         }
         const data = await response.json();
         setResult(data);
@@ -475,7 +495,7 @@ const TrackingResultPage = () => {
                         <div className="flex flex-col">
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dernière mise à jour</span>
                           <span className="text-base font-bold">
-                            {format(new Date(result.last_updated), "d MMMM yyyy", { locale: fr })}
+                            {safeFormatDate(result.last_updated)}
                           </span>
                         </div>
                       </div>
@@ -779,6 +799,7 @@ const AdminLogin = () => {
                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Accès Démo</p>
                 <p className="text-xs text-slate-600">Identifiant : <span className="font-bold">admin</span></p>
                 <p className="text-xs text-slate-600">Mot de passe : <span className="font-bold">admin123</span></p>
+                <p className="text-[9px] text-blue-400 mt-2 italic">* Si vous avez configuré des variables d'environnement personnalisées, utilisez-les à la place.</p>
               </div>
             </div>
 
@@ -840,6 +861,7 @@ const AdminLogin = () => {
 const AdminDashboard = () => {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [status, setStatus] = useState<{ database: string, isPostgres: boolean } | null>(null);
   const [editingApp, setEditingApp] = useState<Partial<Application> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -868,12 +890,17 @@ const AdminDashboard = () => {
       const response = await fetch("/api/admin/applications", {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem("admin_token");
+          navigate("/admin");
+        }
+        throw new Error("Erreur lors du chargement des dossiers");
+      }
       const data = await response.json();
       setApps(data);
     } catch (err) {
-      localStorage.removeItem("admin_token");
-      navigate("/admin");
+      console.error("Admin fetch error:", err);
     } finally {
       setLoading(false);
     }
@@ -902,14 +929,15 @@ const AdminDashboard = () => {
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || "Erreur lors de l'enregistrement");
+        setError(errData.error || "Erreur lors de l'enregistrement");
+        return;
       }
 
       setIsModalOpen(false);
       setEditingApp(null);
       fetchApps();
     } catch (err: any) {
-      alert(err.message);
+      setError(err.message);
     }
   };
 
@@ -930,17 +958,20 @@ const AdminDashboard = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) return;
     const token = localStorage.getItem("admin_token");
-
     try {
-      await fetch(`/api/admin/applications/${id}`, {
+      const response = await fetch(`/api/admin/applications/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
+      if (!response.ok) {
+        const errData = await response.json();
+        setError(errData.error || "Erreur lors de la suppression");
+        return;
+      }
       fetchApps();
-    } catch (err) {
-      alert("Erreur lors de la suppression");
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -996,7 +1027,16 @@ const AdminDashboard = () => {
       <Header />
       <main className="flex-1 bg-slate-50 p-4 md:p-10">
         <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p className="font-medium">{error}</p>
+              <button onClick={() => setError("")} className="ml-auto text-red-400 hover:text-red-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div className="space-y-1">
             <h1 className="text-4xl font-extrabold text-slate-900 font-display tracking-tight">Tableau de Bord</h1>
             <div className="flex items-center gap-3">
