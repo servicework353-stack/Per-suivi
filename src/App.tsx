@@ -705,7 +705,7 @@ const TrackingResultPage = () => {
                       <Info className="w-5 h-5" />
                     </div>
                     <p className="text-sm text-slate-500 font-medium">
-                      Besoin d'aide ? Contactez notre support au <span className="text-slate-900 font-bold">01 02 03 04 05</span>
+                      Besoin d'aide ? Contactez notre support.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4">
