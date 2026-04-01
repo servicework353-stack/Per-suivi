@@ -622,7 +622,7 @@ const TrackingResultPage = () => {
                                     <span className="text-[10px] font-bold uppercase tracking-widest">Document non scanné</span>
                                   </div>
                                 )}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                                   <span className="bg-white text-slate-900 px-4 py-2 rounded-xl text-xs font-bold shadow-xl">Agrandir le document</span>
                                 </div>
                               </div>
@@ -1204,7 +1204,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Photo de l'usager (Portrait)</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Photo de l'usager (Depuis l'appareil)</label>
                     <div className="space-y-3">
                       {editingApp?.photo_url && (
                         <div className="w-20 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
@@ -1220,7 +1220,7 @@ const AdminDashboard = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pièce d'Identité (Recto/Verso)</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pièce d'Identité (Depuis l'appareil)</label>
                     <div className="space-y-3">
                       {editingApp?.id_card_url && (
                         <div className="w-32 h-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
