@@ -19,6 +19,8 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key";
 
+console.log(`Admin credentials configured: Username="${ADMIN_USERNAME}", Password="${ADMIN_PASSWORD.substring(0, 2)}***"`);
+
 // --- DATABASE ABSTRACTION ---
 let db: any;
 const isPostgres = !!process.env.DATABASE_URL;
@@ -36,6 +38,10 @@ if (isPostgres) {
   // Initialize Postgres Table & Migrations
   const initDb = async () => {
     try {
+      // Test connection
+      await db.query("SELECT 1");
+      console.log("PostgreSQL connection successful");
+
       await db.query(`
         CREATE TABLE IF NOT EXISTS applications (
           id SERIAL PRIMARY KEY,
@@ -120,10 +126,20 @@ app.get("/api/track/:code", async (req, res) => {
   try {
     let application;
     if (isPostgres) {
-      const result = await db.query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
-      application = result.rows[0];
+      try {
+        const result = await db.query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
+        application = result.rows[0];
+      } catch (dbErr) {
+        console.error("Postgres Tracking Query Error:", dbErr);
+        throw dbErr;
+      }
     } else {
-      application = db.prepare("SELECT * FROM applications WHERE tracking_code = ?").get(code);
+      try {
+        application = db.prepare("SELECT * FROM applications WHERE tracking_code = ?").get(code);
+      } catch (dbErr) {
+        console.error("SQLite Tracking Query Error:", dbErr);
+        throw dbErr;
+      }
     }
 
     if (!application) {
@@ -147,9 +163,11 @@ app.post("/api/admin/login", (req, res) => {
   const p = String(password || "").trim();
 
   if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
+    console.log(`Admin login successful for user: ${u}`);
     const token = jwt.sign({ username: u }, JWT_SECRET, { expiresIn: "24h" });
     return res.json({ token });
   }
+  console.warn(`Admin login failed for user: ${u}. Check ADMIN_USERNAME and ADMIN_PASSWORD env vars.`);
   res.status(401).json({ error: "Identifiants invalides." });
 });
 
