@@ -11,8 +11,7 @@ import {
   Navigate, 
   useNavigate,
   Link,
-  useParams,
-  useLocation
+  useParams
 } from "react-router-dom";
 import { 
   Search, 
@@ -35,14 +34,7 @@ import {
   Phone,
   CreditCard,
   Image as ImageIcon,
-  UserCircle,
-  X,
-  Copy,
-  RefreshCcw,
-  TrendingUp,
-  Users,
-  Check,
-  ExternalLink
+  UserCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -392,53 +384,33 @@ const TrackingResultPage = () => {
   const [result, setResult] = useState<Application | null>(null);
   const [error, setError] = useState("");
 
-  const safeFormatDate = (dateStr: string) => {
-    try {
-      if (!dateStr) return "-";
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return "Date invalide";
-      return format(date, "d MMMM yyyy", { locale: fr });
-    } catch (e) {
-      return "Date invalide";
-    }
-  };
-
-  const fetchResult = async () => {
-    if (!code) return;
-    setLoading(true);
-    setError("");
-    setResult(null); // Clear previous result to avoid stale data display
-    try {
-      // Add a timestamp to the URL to force cache busting at the browser/proxy level
-      const timestamp = new Date().getTime();
-      const response = await fetch(`/api/track/${code}?t=${timestamp}`, {
-        cache: "no-store", // Ensure we bypass browser cache
-        headers: {
-          "Pragma": "no-cache",
-          "Cache-Control": "no-cache"
-        }
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = "Une erreur est survenue.";
-        try {
-          const errData = JSON.parse(errorText);
-          errorMessage = errData.error || errorMessage;
-        } catch (e) {
-          if (response.status === 404) errorMessage = "Dossier non trouvé. Vérifiez votre code.";
-        }
-        throw new Error(errorMessage);
-      }
-      const data = await response.json();
-      setResult(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchResult = async () => {
+      if (!code) return;
+      setLoading(true);
+      setError("");
+      setResult(null); // Clear previous result to avoid stale data display
+      try {
+        // Add a timestamp to the URL to force cache busting at the browser/proxy level
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/track/${code}?t=${timestamp}`, {
+          cache: "no-store", // Ensure we bypass browser cache
+          headers: {
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache"
+          }
+        });
+        if (!response.ok) {
+          throw new Error(response.status === 404 ? "Dossier non trouvé. Vérifiez votre code." : "Une erreur est survenue.");
+        }
+        const data = await response.json();
+        setResult(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchResult();
   }, [code]);
 
@@ -455,23 +427,13 @@ const TrackingResultPage = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <main className="flex-grow py-12 px-4">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between gap-4 mb-8">
-            <button 
-              onClick={() => navigate("/")}
-              className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold transition-colors group"
-            >
-              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-              Retour à l'accueil
-            </button>
-            <button 
-              onClick={() => fetchResult()}
-              className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold transition-colors group"
-              title="Actualiser les données"
-            >
-              <RefreshCcw className={cn("w-5 h-5", loading && "animate-spin")} />
-              Actualiser
-            </button>
-          </div>
+          <button 
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold mb-8 transition-colors group"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            Retour à l'accueil
+          </button>
 
           <AnimatePresence mode="wait">
             {error ? (
@@ -512,7 +474,7 @@ const TrackingResultPage = () => {
                         <div className="flex flex-col">
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dernière mise à jour</span>
                           <span className="text-base font-bold">
-                            {safeFormatDate(result.last_updated)}
+                            {format(new Date(result.last_updated), "d MMMM yyyy", { locale: fr })}
                           </span>
                         </div>
                       </div>
@@ -707,13 +669,6 @@ const AdminLogin = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = localStorage.getItem("admin_token");
-    if (token) {
-      navigate("/admin/dashboard");
-    }
-  }, [navigate]);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -730,14 +685,8 @@ const AdminLogin = () => {
       });
 
       if (!response.ok) {
-        let errorMessage = "Identifiants invalides";
-        try {
-          const errData = await response.json();
-          errorMessage = errData.error || errorMessage;
-        } catch (e) {
-          // Not JSON
-        }
-        throw new Error(errorMessage);
+        const errData = await response.json();
+        throw new Error(errData.error || "Identifiants invalides");
       }
 
       const { token } = await response.json();
@@ -751,126 +700,115 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-1 flex items-center justify-center p-4 bg-slate-50 relative overflow-hidden">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-50" />
-          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-50" />
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-slate-50 relative overflow-hidden">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-50" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-50" />
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row relative z-10"
+      >
+        {/* Left Side: Image/Branding */}
+        <div className="hidden md:block md:w-1/2 relative">
+          <img 
+            src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=1000" 
+            alt="Office background" 
+            className="absolute inset-0 w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-blue-600/90 mix-blend-multiply" />
+          <div className="absolute inset-0 p-12 flex flex-col justify-between text-white">
+            <div>
+              <div className="flex items-center gap-2 mb-8">
+                <FileText className="w-8 h-8" />
+                <span className="font-bold text-2xl tracking-tight">PermisSuivi</span>
+              </div>
+              <h2 className="text-4xl font-bold leading-tight mb-6">Gestion administrative simplifiée.</h2>
+              <p className="text-blue-100 text-lg">Accédez à l'interface de gestion pour mettre à jour les dossiers et informer les usagers en temps réel.</p>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-blue-200">
+              <div className="flex -space-x-2">
+                {[1, 2, 3].map(i => (
+                  <img 
+                    key={i}
+                    src={`https://picsum.photos/seed/user${i}/100/100`} 
+                    className="w-8 h-8 rounded-full border-2 border-blue-600"
+                    alt="User"
+                    referrerPolicy="no-referrer"
+                  />
+                ))}
+              </div>
+              <span>Rejoint par +500 agents</span>
+            </div>
+          </div>
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-5xl w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row relative z-10"
-        >
-          {/* Left Side: Image/Branding */}
-          <div className="hidden md:block md:w-1/2 relative">
-            <img 
-              src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=1000" 
-              alt="Office background" 
-              className="absolute inset-0 w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-blue-600/90 mix-blend-multiply" />
-            <div className="absolute inset-0 p-12 flex flex-col justify-between text-white">
-              <div>
-                <div className="flex items-center gap-2 mb-8">
-                  <FileText className="w-8 h-8" />
-                  <span className="font-bold text-2xl tracking-tight">PermisSuivi</span>
-                </div>
-                <h2 className="text-4xl font-bold leading-tight mb-6">Gestion administrative simplifiée.</h2>
-                <p className="text-blue-100 text-lg">Accédez à l'interface de gestion pour mettre à jour les dossiers et informer les usagers en temps réel.</p>
+        {/* Right Side: Login Form */}
+        <div className="w-full md:w-1/2 p-8 md:p-16">
+          <div className="mb-10">
+            <div className="md:hidden flex items-center gap-2 mb-6">
+              <div className="bg-blue-600 p-2 rounded-lg">
+                <FileText className="text-white w-5 h-5" />
               </div>
-              <div className="flex items-center gap-4 text-sm text-blue-200">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3].map(i => (
-                    <img 
-                      key={i}
-                      src={`https://picsum.photos/seed/user${i}/100/100`} 
-                      className="w-8 h-8 rounded-full border-2 border-blue-600"
-                      alt="User"
-                      referrerPolicy="no-referrer"
-                    />
-                  ))}
-                </div>
-                <span>Rejoint par +500 agents</span>
-              </div>
+              <span className="font-bold text-xl text-slate-900 tracking-tight">PermisSuivi</span>
             </div>
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">Bon retour.</h2>
+            <p className="text-slate-500">Veuillez entrer vos identifiants pour continuer.</p>
           </div>
 
-          {/* Right Side: Login Form */}
-          <div className="w-full md:w-1/2 p-8 md:p-16">
-            <div className="mb-10">
-              <div className="md:hidden flex items-center gap-2 mb-6">
-                <div className="bg-blue-600 p-2 rounded-lg">
-                  <FileText className="text-white w-5 h-5" />
-                </div>
-                <span className="font-bold text-xl text-slate-900 tracking-tight">PermisSuivi</span>
-              </div>
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">Bon retour.</h2>
-              <p className="text-slate-500">Veuillez entrer vos identifiants pour continuer.</p>
-              
-              <div className="mt-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Accès Démo</p>
-                <p className="text-xs text-slate-600">Identifiant : <span className="font-bold">admin</span></p>
-                <p className="text-xs text-slate-600">Mot de passe : <span className="font-bold">admin123</span></p>
-                <p className="text-[9px] text-blue-400 mt-2 italic">* Si vous avez configuré des variables d'environnement personnalisées, utilisez-les à la place.</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-6">
-              {error && (
-                <motion.div 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-100 flex items-center gap-3"
-                >
-                  <AlertCircle className="w-5 h-5 shrink-0" />
-                  {error}
-                </motion.div>
-              )}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Identifiant</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input 
-                    type="text" 
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="admin"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Mot de passe</label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input 
-                    type="password" 
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-              </div>
-              <button 
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-blue-200 active:scale-[0.98]"
+          <form onSubmit={handleLogin} className="space-y-6">
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-100 flex items-center gap-3"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Se connecter"}
-              </button>
-            </form>
-          </div>
-        </motion.div>
-      </main>
-      <Footer />
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                {error}
+              </motion.div>
+            )}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Identifiant</label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input 
+                  type="text" 
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="admin"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Mot de passe</label>
+              <div className="relative">
+                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+              </div>
+            </div>
+            <button 
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-blue-200 active:scale-[0.98]"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Se connecter"}
+            </button>
+          </form>
+        </div>
+      </motion.div>
     </div>
   );
 };
@@ -878,13 +816,9 @@ const AdminLogin = () => {
 const AdminDashboard = () => {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [error, setError] = useState("");
-  const [status, setStatus] = useState<{ database: string, isPostgres: boolean } | null>(null);
+  const [status, setStatus] = useState<{ database: string, isPostgres: boolean, dbConnected: boolean } | null>(null);
   const [editingApp, setEditingApp] = useState<Partial<Application> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [copySuccess, setCopySuccess] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const fetchStatus = async () => {
@@ -910,17 +844,23 @@ const AdminDashboard = () => {
       const response = await fetch("/api/admin/applications", {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem("admin_token");
-          navigate("/admin");
-        }
-        throw new Error("Erreur lors du chargement des dossiers");
+      
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem("admin_token");
+        return navigate("/admin");
       }
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Erreur serveur");
+      }
+      
       const data = await response.json();
       setApps(data);
-    } catch (err) {
-      console.error("Admin fetch error:", err);
+    } catch (err: any) {
+      console.error("Fetch apps error:", err);
+      // Don't redirect on generic server errors (like DB down)
+      // Only redirect on auth errors
     } finally {
       setLoading(false);
     }
@@ -933,42 +873,30 @@ const AdminDashboard = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    setError("");
     const token = localStorage.getItem("admin_token");
     const method = editingApp?.id ? "PUT" : "POST";
     const url = editingApp?.id ? `/api/admin/applications/${editingApp.id}` : "/api/admin/applications";
 
     try {
-      // Ensure tracking code is uppercase and trimmed
-      const appToSave = {
-        ...editingApp,
-        tracking_code: editingApp?.tracking_code?.trim().toUpperCase()
-      };
-
       const response = await fetch(url, {
         method,
         headers: { 
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify(appToSave),
+        body: JSON.stringify(editingApp),
       });
 
       if (!response.ok) {
         const errData = await response.json();
-        setError(errData.error || "Erreur lors de l'enregistrement");
-        setSaving(false);
-        return;
+        throw new Error(errData.error || "Erreur lors de l'enregistrement");
       }
 
       setIsModalOpen(false);
       setEditingApp(null);
-      await fetchApps();
+      fetchApps();
     } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
+      alert(err.message);
     }
   };
 
@@ -982,87 +910,24 @@ const AdminDashboard = () => {
         const fullApp = await response.json();
         setEditingApp(fullApp);
         setIsModalOpen(true);
-      } else {
-        setError("Erreur lors du chargement des détails du dossier");
       }
     } catch (err) {
-      setError("Erreur lors du chargement des détails");
+      alert("Erreur lors du chargement des détails");
     }
   };
 
   const handleDelete = async (id: number) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce dossier ?")) return;
     const token = localStorage.getItem("admin_token");
+
     try {
-      const response = await fetch(`/api/admin/applications/${id}`, {
+      await fetch(`/api/admin/applications/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!response.ok) {
-        const errData = await response.json();
-        setError(errData.error || "Erreur lors de la suppression");
-        return;
-      }
-      fetchApps();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const handleCopyCode = (code: string, id: number) => {
-    navigator.clipboard.writeText(code);
-    setCopySuccess(id);
-    setTimeout(() => setCopySuccess(null), 2000);
-  };
-
-  const filteredApps = apps.filter(app => 
-    app.tracking_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    `${app.first_name} ${app.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (app.phone && app.phone.includes(searchTerm))
-  );
-
-  const stats = {
-    total: apps.length,
-    validated: apps.filter(a => a.status === "Validé" || a.status === "Permis disponible").length,
-    pending: apps.filter(a => a.status === "En attente" || a.status === "En cours de traitement").length,
-    rejected: apps.filter(a => a.status === "Rejeté").length,
-  };
-
-  const handleSeedData = async () => {
-    if (!window.confirm("Voulez-vous ajouter des données de test ?")) return;
-    const token = localStorage.getItem("admin_token");
-    const demoApps = [
-      { tracking_code: "FR-2024-001", first_name: "Jean", last_name: "Dupont", status: "Validé", address: "Abidjan, Cocody", phone: "+225 0102030405", license_category: "B", comment: "Dossier complet et validé." },
-      { tracking_code: "FR-2024-002", first_name: "Marie", last_name: "Kouassi", status: "En cours de traitement", address: "Yamoussoukro", phone: "+225 0708091011", license_category: "BC", comment: "En attente de signature finale." },
-      { tracking_code: "FR-2024-003", first_name: "Ahmed", last_name: "Traoré", status: "Rejeté", address: "Bouaké", phone: "+225 0506070809", license_category: "D", comment: "Photo non conforme." },
-    ];
-
-    try {
-      for (const app of demoApps) {
-        await fetch("/api/admin/applications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify(app),
-        });
-      }
       fetchApps();
     } catch (err) {
-      setError("Erreur lors de l'ajout des données de test");
-    }
-  };
-
-  const handleClearAll = async () => {
-    if (!window.confirm("ATTENTION : Voulez-vous vraiment supprimer TOUS les dossiers ? Cette action est irréversible.")) return;
-    const token = localStorage.getItem("admin_token");
-    try {
-      for (const app of apps) {
-        await fetch(`/api/admin/applications/${app.id}`, {
-          method: "DELETE",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-      }
-      fetchApps();
-    } catch (err) {
-      setError("Erreur lors de la suppression des dossiers");
+      alert("Erreur lors de la suppression");
     }
   };
 
@@ -1087,451 +952,321 @@ const AdminDashboard = () => {
         const base64 = await fileToBase64(file);
         setEditingApp({ ...editingApp, [field]: base64 });
       } catch (err) {
-        setError("Erreur lors de la lecture du fichier");
+        alert("Erreur lors de la lecture du fichier");
       }
     }
   };
 
-  const safeFormatDate = (dateStr: string) => {
-    try {
-      if (!dateStr) return "-";
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return "Date invalide";
-      return format(date, "dd/MM/yyyy HH:mm");
-    } catch (e) {
-      return "Date invalide";
-    }
-  };
-
-  if (loading) return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <div className="flex-1 flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-      <Footer />
-    </div>
-  );
+  if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-1 bg-slate-50 p-4 md:p-10">
-        <div className="max-w-7xl mx-auto">
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <p className="font-medium">{error}</p>
-              <button onClick={() => setError("")} className="ml-auto text-red-400 hover:text-red-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          )}
-
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-            <div className="space-y-1">
-              <h1 className="text-4xl font-extrabold text-slate-900 font-display tracking-tight">Tableau de Bord</h1>
-              <div className="flex items-center gap-3">
-                <p className="text-slate-500 font-medium">Gestion centralisée des dossiers</p>
-                {status && (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-10">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          <div className="space-y-1">
+            <h1 className="text-4xl font-extrabold text-slate-900 font-display tracking-tight">Tableau de Bord</h1>
+            <div className="flex items-center gap-3">
+              <p className="text-slate-500 font-medium">Gestion centralisée des dossiers</p>
+              {status && (
+                <div className="flex items-center gap-2">
                   <div className={cn(
                     "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
                     status.isPostgres ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
                   )}>
                     Stockage : {status.database}
                   </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => fetchApps()}
-                className="bg-white text-slate-600 p-3.5 rounded-2xl font-bold border border-slate-200 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-                title="Actualiser"
-              >
-                <RefreshCcw className={cn("w-5 h-5", loading && "animate-spin")} />
-              </button>
-              <button 
-                onClick={() => { setEditingApp({ status: STATUS_OPTIONS[0] }); setIsModalOpen(true); }}
-                className="flex-1 md:flex-none bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
-              >
-                <Plus className="w-5 h-5" /> <span className="hidden sm:inline">Nouveau Dossier</span><span className="sm:hidden">Ajouter</span>
-              </button>
-              <button 
-                onClick={handleSeedData}
-                className="bg-white text-emerald-600 p-3.5 md:px-6 md:py-3.5 rounded-2xl font-bold border border-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-50 transition-all active:scale-95 shadow-sm"
-                title="Ajouter des données de test"
-              >
-                <Plus className="w-5 h-5" /> <span className="hidden md:inline">Données Démo</span>
-              </button>
-              <button 
-                onClick={handleClearAll}
-                className="bg-white text-red-600 p-3.5 md:px-6 md:py-3.5 rounded-2xl font-bold border border-red-100 flex items-center justify-center gap-2 hover:bg-red-50 transition-all active:scale-95 shadow-sm"
-                title="Tout supprimer"
-              >
-                <Trash2 className="w-5 h-5" /> <span className="hidden md:inline">Tout Effacer</span>
-              </button>
-              <button 
-                onClick={handleLogout}
-                className="bg-white text-slate-600 p-3.5 md:px-6 md:py-3.5 rounded-2xl font-bold border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-                title="Déconnexion"
-              >
-                <LogOut className="w-5 h-5" /> <span className="hidden md:inline">Déconnexion</span>
-              </button>
+                  {!status.dbConnected && (
+                    <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Base de données suspendue
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => { setEditingApp({ status: STATUS_OPTIONS[0] }); setIsModalOpen(true); }}
+              className="flex-1 md:flex-none bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
+            >
+              <Plus className="w-5 h-5" /> <span className="hidden sm:inline">Nouveau Dossier</span><span className="sm:hidden">Ajouter</span>
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="bg-white text-slate-600 p-3.5 md:px-6 md:py-3.5 rounded-2xl font-bold border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+              title="Déconnexion"
+            >
+              <LogOut className="w-5 h-5" /> <span className="hidden md:inline">Déconnexion</span>
+            </button>
+          </div>
+        </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {[
-              { label: "Total Dossiers", value: stats.total, icon: FileText, color: "blue" },
-              { label: "Validés", value: stats.validated, icon: CheckCircle2, color: "emerald" },
-              { label: "En Attente", value: stats.pending, icon: Clock, color: "amber" },
-              { label: "Rejetés", value: stats.rejected, icon: AlertCircle, color: "red" },
-            ].map((stat, i) => (
-              <motion.div 
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm"
-              >
-                <div className={`w-10 h-10 rounded-xl bg-${stat.color}-50 flex items-center justify-center mb-4`}>
-                  <stat.icon className={`w-5 h-5 text-${stat.color}-600`} />
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Code</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Usager</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Téléphone</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Statut</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Mise à Jour</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {apps.map((app) => (
+                  <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4 font-bold text-slate-900 font-display">{app.tracking_code}</td>
+                    <td className="px-6 py-4 text-slate-600 font-medium">{app.first_name} {app.last_name}</td>
+                    <td className="px-6 py-4 text-slate-500 font-mono text-xs">{app.phone || "-"}</td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "inline-flex items-center px-3 py-1 rounded-full text-xs font-bold",
+                        app.status === "Validé" || app.status === "Permis disponible" ? "bg-emerald-100 text-emerald-700" :
+                        app.status === "Rejeté" ? "bg-red-100 text-red-700" :
+                        "bg-blue-100 text-blue-700"
+                      )}>
+                        {app.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                      {format(new Date(app.last_updated), "dd/MM/yyyy HH:mm")}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleEdit(app)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(app.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {apps.map((app) => (
+              <div key={app.id} className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-lg text-slate-900 font-display">{app.tracking_code}</span>
+                  <span className={cn(
+                    "inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                    app.status === "Validé" || app.status === "Permis disponible" ? "bg-emerald-100 text-emerald-700" :
+                    app.status === "Rejeté" ? "bg-red-100 text-red-700" :
+                    "bg-blue-100 text-blue-700"
+                  )}>
+                    {app.status}
+                  </span>
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
-                <p className="text-2xl font-black text-slate-900 font-display tracking-tight">{stat.value}</p>
-              </motion.div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500 font-medium">{app.first_name} {app.last_name}</span>
+                  <span className="text-slate-400">{format(new Date(app.last_updated), "dd/MM/yy")}</span>
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <button 
+                    onClick={() => handleEdit(app)}
+                    className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" /> Modifier
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(app.id)}
+                    className="flex-1 bg-red-50 text-red-600 py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" /> Supprimer
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
 
-          {/* Search Bar */}
-          <div className="mb-8 relative group">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
-            <input 
-              type="text"
-              placeholder="Rechercher par code, nom ou téléphone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-[24px] pl-14 pr-14 py-5 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm text-slate-600 font-medium"
+          {apps.length === 0 && (
+            <div className="px-6 py-20 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <FileText className="w-10 h-10 text-slate-200" />
+              </div>
+              <p className="text-slate-400 italic font-medium">Aucun dossier enregistré pour le moment.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
-            {searchTerm && (
-              <button 
-                onClick={() => setSearchTerm("")}
-                className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-
-          <div className="bg-white rounded-[32px] shadow-xl border border-slate-200 overflow-hidden">
-            {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-200">
-                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Dossier</th>
-                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Usager</th>
-                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Statut</th>
-                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Mise à Jour</th>
-                    <th className="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredApps.map((app) => (
-                    <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-3">
-                          <span className="font-black text-slate-900 font-display tracking-tight">{app.tracking_code}</span>
-                          <button 
-                            onClick={() => handleCopyCode(app.tracking_code, app.id)}
-                            className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                            title="Copier le code"
-                          >
-                            {copySuccess === app.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex flex-col">
-                          <span className="text-slate-900 font-bold">{app.first_name} {app.last_name}</span>
-                          <span className="text-slate-400 text-xs font-medium">{app.phone || "Pas de téléphone"}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className={cn(
-                          "inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border",
-                          app.status === "Validé" || app.status === "Permis disponible" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
-                          app.status === "Rejeté" ? "bg-red-50 text-red-700 border-red-100" :
-                          "bg-blue-50 text-blue-700 border-blue-100"
-                        )}>
-                          {app.status}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex flex-col">
-                          <span className="text-slate-600 font-bold text-sm">{safeFormatDate(app.last_updated).split(' ')[0]}</span>
-                          <span className="text-slate-400 text-[10px] font-medium uppercase tracking-tighter">{safeFormatDate(app.last_updated).split(' ').slice(1).join(' ')}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                          <button 
-                            onClick={() => handleEdit(app)}
-                            className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
-                            title="Modifier"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(app.id)}
-                            className="p-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="md:hidden divide-y divide-slate-100">
-              {filteredApps.map((app) => (
-                <div key={app.id} className="p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-lg text-slate-900 font-display tracking-tight">{app.tracking_code}</span>
-                      <button onClick={() => handleCopyCode(app.tracking_code, app.id)} className="text-slate-300">
-                        {copySuccess === app.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    <span className={cn(
-                      "inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
-                      app.status === "Validé" || app.status === "Permis disponible" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
-                      app.status === "Rejeté" ? "bg-red-50 text-red-700 border-red-100" :
-                      "bg-blue-50 text-blue-700 border-blue-100"
-                    )}>
-                      {app.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-slate-900 font-bold">{app.first_name} {app.last_name}</span>
-                      <span className="text-slate-400 text-xs">{app.phone || "-"}</span>
-                    </div>
-                    <span className="text-slate-400 text-xs font-medium">{safeFormatDate(app.last_updated).split(' ')[0]}</span>
-                  </div>
-                  <div className="flex items-center gap-3 pt-2">
-                    <button 
-                      onClick={() => handleEdit(app)}
-                      className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
-                    >
-                      <Edit2 className="w-4 h-4" /> Modifier
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(app.id)}
-                      className="flex-1 bg-red-50 text-red-600 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" /> Supprimer
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {filteredApps.length === 0 && (
-              <div className="px-6 py-24 text-center">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8">
-                  <Search className="w-10 h-10 text-slate-200" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Aucun résultat trouvé</h3>
-                <p className="text-slate-400 font-medium">Essayez de modifier vos critères de recherche.</p>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white md:rounded-3xl shadow-2xl overflow-hidden h-full md:h-auto flex flex-col"
+            >
+              <div className="bg-slate-50 px-6 md:px-8 py-6 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <h2 className="text-xl font-bold text-slate-900 font-display">
+                  {editingApp?.id ? "Modifier le Dossier" : "Nouveau Dossier"}
+                </h2>
+                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 rounded-xl transition-colors">
+                  <Plus className="w-6 h-6 rotate-45" />
+                </button>
               </div>
-            )}
-          </div>
-        </div>
-      </main>
-
-    <Footer />
-
-    {/* Modal */}
-    <AnimatePresence>
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsModalOpen(false)}
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-          />
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-2xl bg-white md:rounded-3xl shadow-2xl overflow-hidden h-full md:h-auto flex flex-col"
-          >
-            <div className="bg-slate-50 px-6 md:px-8 py-6 border-b border-slate-200 flex items-center justify-between shrink-0">
-              <h2 className="text-xl font-bold text-slate-900 font-display">
-                {editingApp?.id ? "Modifier le Dossier" : "Nouveau Dossier"}
-              </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 rounded-xl transition-colors">
-                <Plus className="w-6 h-6 rotate-45" />
-              </button>
-            </div>
-            <form onSubmit={handleSave} className="p-6 md:p-8 space-y-6 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form onSubmit={handleSave} className="p-6 md:p-8 space-y-6 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Code de Suivi</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={editingApp?.tracking_code || ""}
+                      onChange={(e) => setEditingApp({ ...editingApp, tracking_code: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Ex: FR-2024-001"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Statut</label>
+                    <select 
+                      value={editingApp?.status || ""}
+                      onChange={(e) => setEditingApp({ ...editingApp, status: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+                    >
+                      {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Prénom</label>
+                    <input 
+                      type="text" 
+                      value={editingApp?.first_name || ""}
+                      onChange={(e) => setEditingApp({ ...editingApp, first_name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Prénom de l'usager"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Nom</label>
+                    <input 
+                      type="text" 
+                      value={editingApp?.last_name || ""}
+                      onChange={(e) => setEditingApp({ ...editingApp, last_name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Nom de l'usager"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Téléphone</label>
+                    <input 
+                      type="text" 
+                      value={editingApp?.phone || ""}
+                      onChange={(e) => setEditingApp({ ...editingApp, phone: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Ex: +225 0102030405"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Catégorie Permis</label>
+                    <input 
+                      type="text" 
+                      value={editingApp?.license_category || ""}
+                      onChange={(e) => setEditingApp({ ...editingApp, license_category: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Ex: B, BC, D..."
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Adresse</label>
+                    <input 
+                      type="text" 
+                      value={editingApp?.address || ""}
+                      onChange={(e) => setEditingApp({ ...editingApp, address: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Adresse complète de résidence"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Photo de l'usager (Portrait)</label>
+                    <div className="space-y-3">
+                      {editingApp?.photo_url && (
+                        <div className="w-20 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          <img src={editingApp.photo_url} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'photo_url')}
+                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pièce d'Identité (Recto/Verso)</label>
+                    <div className="space-y-3">
+                      {editingApp?.id_card_url && (
+                        <div className="w-32 h-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          <img src={editingApp.id_card_url} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'id_card_url')}
+                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Code de Suivi</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={editingApp?.tracking_code || ""}
-                    onChange={(e) => setEditingApp({ ...editingApp, tracking_code: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="Ex: FR-2024-001"
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Commentaire Administration</label>
+                  <textarea 
+                    rows={4}
+                    value={editingApp?.comment || ""}
+                    onChange={(e) => setEditingApp({ ...editingApp, comment: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+                    placeholder="Détails sur l'avancement du dossier..."
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Statut</label>
-                  <select 
-                    value={editingApp?.status || ""}
-                    onChange={(e) => setEditingApp({ ...editingApp, status: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6">
+                  <button 
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="order-2 sm:order-1 px-8 py-3.5 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all text-center"
                   >
-                    {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
+                    Annuler
+                  </button>
+                  <button 
+                    type="submit"
+                    className="order-1 sm:order-2 bg-blue-600 text-white px-10 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 text-center"
+                  >
+                    Enregistrer le Dossier
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Prénom</label>
-                  <input 
-                    type="text" 
-                    value={editingApp?.first_name || ""}
-                    onChange={(e) => setEditingApp({ ...editingApp, first_name: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="Prénom de l'usager"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Nom</label>
-                  <input 
-                    type="text" 
-                    value={editingApp?.last_name || ""}
-                    onChange={(e) => setEditingApp({ ...editingApp, last_name: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="Nom de l'usager"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Téléphone</label>
-                  <input 
-                    type="text" 
-                    value={editingApp?.phone || ""}
-                    onChange={(e) => setEditingApp({ ...editingApp, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="Ex: +225 0102030405"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Catégorie Permis</label>
-                  <input 
-                    type="text" 
-                    value={editingApp?.license_category || ""}
-                    onChange={(e) => setEditingApp({ ...editingApp, license_category: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="Ex: B, BC, D..."
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Adresse</label>
-                  <input 
-                    type="text" 
-                    value={editingApp?.address || ""}
-                    onChange={(e) => setEditingApp({ ...editingApp, address: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    placeholder="Adresse complète de résidence"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Photo de l'usager (Portrait)</label>
-                  <div className="space-y-3">
-                    {editingApp?.photo_url && (
-                      <div className="w-20 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                        <img src={editingApp.photo_url} alt="Preview" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={(e) => handleFileChange(e, 'photo_url')}
-                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pièce d'Identité (Recto/Verso)</label>
-                  <div className="space-y-3">
-                    {editingApp?.id_card_url && (
-                      <div className="w-32 h-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                        <img src={editingApp.id_card_url} alt="Preview" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={(e) => handleFileChange(e, 'id_card_url')}
-                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Commentaire Administration</label>
-                <textarea 
-                  rows={4}
-                  value={editingApp?.comment || ""}
-                  onChange={(e) => setEditingApp({ ...editingApp, comment: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
-                  placeholder="Détails sur l'avancement du dossier..."
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="order-2 sm:order-1 px-8 py-3.5 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all text-center"
-                >
-                  Annuler
-                </button>
-                <button 
-                  type="submit"
-                  className="order-1 sm:order-2 bg-blue-600 text-white px-10 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 text-center"
-                >
-                  Enregistrer le Dossier
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  </div>
-);
-};
-
-const TrackingWrapper = () => {
-  const location = useLocation();
-  return (
-    <>
-      <Header />
-      <TrackingResultPage key={location.key} />
-      <Footer />
-    </>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
@@ -1551,10 +1286,23 @@ export default function App() {
             </>
           } />
 
-          <Route path="/track/:code" element={<TrackingWrapper />} />
+          <Route path="/track/:code" element={
+            <>
+              <Header />
+              <TrackingResultPage />
+              <Footer />
+            </>
+          } />
 
           {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin" element={
+            <>
+              <Header />
+              <AdminLogin />
+              <Footer />
+            </>
+          } />
+          
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
           {/* Catch-all */}

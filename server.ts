@@ -172,11 +172,24 @@ app.post("/api/admin/login", (req, res) => {
 });
 
 // Admin: Get system status
-app.get("/api/admin/status", authenticateToken, (req, res) => {
+app.get("/api/admin/status", authenticateToken, async (req, res) => {
+  let dbConnected = false;
+  if (isPostgres) {
+    try {
+      await db.query("SELECT 1");
+      dbConnected = true;
+    } catch (e) {
+      dbConnected = false;
+    }
+  } else {
+    dbConnected = true; // SQLite is always "connected" locally
+  }
+
   res.json({
     database: isPostgres ? "PostgreSQL (Permanent)" : "SQLite (Temporaire - Données perdues au redémarrage)",
     mode: process.env.NODE_ENV || "development",
-    isPostgres
+    isPostgres,
+    dbConnected
   });
 });
 
