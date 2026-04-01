@@ -384,17 +384,27 @@ const TrackingResultPage = () => {
   const [result, setResult] = useState<Application | null>(null);
   const [error, setError] = useState("");
 
+  const steps = [
+    "Dossier reçu",
+    "En cours de traitement",
+    "Validé",
+    "Permis disponible"
+  ];
+
+  const currentStepIndex = result ? steps.indexOf(result.status) : -1;
+  // If status is not in the main steps (like "Rejeté" or "En attente"), we handle it differently
+  const isSpecialStatus = result && !steps.includes(result.status);
+
   useEffect(() => {
     const fetchResult = async () => {
       if (!code) return;
       setLoading(true);
       setError("");
-      setResult(null); // Clear previous result to avoid stale data display
+      setResult(null);
       try {
-        // Add a timestamp to the URL to force cache busting at the browser/proxy level
         const timestamp = new Date().getTime();
         const response = await fetch(`/api/track/${code}?t=${timestamp}`, {
-          cache: "no-store", // Ensure we bypass browser cache
+          cache: "no-store",
           headers: {
             "Pragma": "no-cache",
             "Cache-Control": "no-cache"
@@ -417,41 +427,54 @@ const TrackingResultPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-4" />
-        <p className="text-slate-500 font-bold animate-pulse">Recherche de votre dossier...</p>
+        <div className="relative">
+          <div className="w-20 h-20 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+          <FileText className="absolute inset-0 m-auto w-8 h-8 text-blue-600 animate-pulse" />
+        </div>
+        <p className="mt-6 text-slate-400 font-bold tracking-widest uppercase text-xs">Sécurisation de la connexion...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <main className="flex-grow py-12 px-4">
-        <div className="max-w-5xl mx-auto">
-          <button 
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold mb-8 transition-colors group"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            Retour à l'accueil
-          </button>
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
+      <main className="flex-grow py-8 md:py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
+            <button 
+              onClick={() => navigate("/")}
+              className="inline-flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold transition-all group px-4 py-2 rounded-xl hover:bg-blue-50 w-fit"
+            >
+              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+              Retour
+            </button>
+            
+            {result && (
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Système de suivi en direct</span>
+              </div>
+            )}
+          </div>
 
           <AnimatePresence mode="wait">
             {error ? (
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white border border-red-100 rounded-[32px] p-12 text-center shadow-xl"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white border border-slate-200 rounded-[40px] p-12 md:p-20 text-center shadow-2xl shadow-slate-200/50 relative overflow-hidden"
               >
-                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <AlertCircle className="w-10 h-10 text-red-500" />
+                <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
+                <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                  <AlertCircle className="w-12 h-12 text-red-500" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Oups !</h2>
-                <p className="text-slate-500 mb-8">{error}</p>
+                <h2 className="text-3xl font-black text-slate-900 mb-4 font-display">Dossier Introuvable</h2>
+                <p className="text-slate-500 mb-10 max-w-md mx-auto text-lg leading-relaxed">{error}</p>
                 <button 
                   onClick={() => navigate("/")}
-                  className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                  className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl active:scale-95"
                 >
-                  Réessayer
+                  Nouvelle recherche
                 </button>
               </motion.div>
             ) : result && (
@@ -460,197 +483,249 @@ const TrackingResultPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-8"
               >
-                {/* Result Card */}
-                <div className="bg-white border border-slate-200 rounded-[32px] shadow-2xl overflow-hidden">
-                  <div className="bg-slate-900 px-6 md:px-10 py-12 text-white relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600 rounded-full blur-[120px] opacity-20 -mr-48 -mt-48" />
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
-                      <div className="space-y-3">
-                        <span className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.3em]">Code de suivi officiel</span>
-                        <h2 className="text-5xl font-black font-display tracking-tight">{result.tracking_code}</h2>
-                      </div>
-                      <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10">
-                        <Calendar className="w-6 h-6 text-blue-400" />
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dernière mise à jour</span>
-                          <span className="text-base font-bold">
-                            {format(new Date(result.last_updated), "d MMMM yyyy", { locale: fr })}
-                          </span>
+                {/* Main Identity Header */}
+                <div className="bg-white rounded-[40px] shadow-2xl shadow-slate-200/60 border border-slate-200 overflow-hidden">
+                  <div className="grid grid-cols-1 lg:grid-cols-12">
+                    {/* Left: Identity Photo */}
+                    <div className="lg:col-span-4 bg-slate-50 p-8 md:p-12 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-200">
+                      <div className="relative group">
+                        <div className="w-48 h-64 md:w-56 md:h-72 rounded-[32px] overflow-hidden bg-white border-8 border-white shadow-2xl relative z-10">
+                          {result.photo_url ? (
+                            <img 
+                              src={result.photo_url} 
+                              alt="Identité" 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-200">
+                              <UserCircle className="w-24 h-24" />
+                            </div>
+                          )}
                         </div>
+                        <div className="absolute -inset-4 bg-blue-600/5 rounded-[40px] blur-2xl -z-0" />
+                      </div>
+                      <div className="mt-8 text-center">
+                        <h2 className="text-2xl font-black text-slate-900 font-display uppercase tracking-tight">
+                          {result.first_name} {result.last_name}
+                        </h2>
+                        <div className="inline-flex items-center gap-2 mt-2 px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase tracking-widest border border-blue-100">
+                          <CreditCard className="w-3 h-3" />
+                          Catégorie {result.license_category || "B"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Status & Progress */}
+                    <div className="lg:col-span-8 p-8 md:p-12 flex flex-col justify-between">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Référence du dossier</span>
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-4xl font-black text-slate-900 font-display">{result.tracking_code}</h3>
+                            <div className="px-3 py-1 bg-slate-100 rounded-lg text-[10px] font-bold text-slate-500 uppercase">Officiel</div>
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 px-6 py-4 rounded-3xl border border-slate-100 flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-blue-600">
+                            <Calendar className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mise à jour</p>
+                            <p className="text-sm font-bold text-slate-700">
+                              {format(new Date(result.last_updated), "d MMMM yyyy", { locale: fr })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Progress Stepper */}
+                      <div className="relative py-8">
+                        <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -translate-y-1/2 hidden md:block" />
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 relative z-10">
+                          {steps.map((step, idx) => {
+                            const isCompleted = !isSpecialStatus && idx <= currentStepIndex;
+                            const isCurrent = !isSpecialStatus && idx === currentStepIndex;
+                            
+                            return (
+                              <div key={step} className="flex flex-col items-center md:items-start text-center md:text-left group">
+                                <div className={cn(
+                                  "w-10 h-10 rounded-full flex items-center justify-center mb-4 transition-all duration-500 border-4",
+                                  isCompleted ? "bg-blue-600 border-blue-100 text-white scale-110 shadow-lg shadow-blue-200" : 
+                                  "bg-white border-slate-100 text-slate-300"
+                                )}>
+                                  {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <span className="text-xs font-bold">{idx + 1}</span>}
+                                </div>
+                                <p className={cn(
+                                  "text-[10px] font-bold uppercase tracking-wider leading-tight max-w-[100px]",
+                                  isCurrent ? "text-blue-600" : isCompleted ? "text-slate-900" : "text-slate-400"
+                                )}>
+                                  {step}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Current Status Badge (Mobile/Special) */}
+                      {(isSpecialStatus || true) && (
+                        <div className="mt-12 p-6 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg",
+                              result.status === "Validé" || result.status === "Permis disponible" ? "bg-emerald-600 text-white shadow-emerald-200" :
+                              result.status === "Rejeté" ? "bg-red-600 text-white shadow-red-200" :
+                              "bg-blue-600 text-white shadow-blue-200"
+                            )}>
+                              {result.status === "Validé" || result.status === "Permis disponible" ? <CheckCircle2 className="w-7 h-7" /> : 
+                               result.status === "Rejeté" ? <AlertCircle className="w-7 h-7" /> : <Clock className="w-7 h-7" />}
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Statut Actuel</p>
+                              <h4 className="text-xl font-black text-slate-900">{result.status}</h4>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-400 text-xs font-medium italic bg-white px-4 py-2 rounded-xl border border-slate-100">
+                            <Info className="w-4 h-4" />
+                            Dossier en cours de validité légale
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Personal Info */}
+                  <div className="lg:col-span-2 bg-white rounded-[40px] p-8 md:p-12 shadow-xl border border-slate-200 space-y-10">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white">
+                        <User className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-xl font-black text-slate-900 font-display">Informations Personnelles</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      <div className="space-y-6">
+                        <div className="group">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Nom Complet</p>
+                          <p className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{result.first_name} {result.last_name}</p>
+                        </div>
+                        <div className="group">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Contact Téléphonique</p>
+                          <p className="text-lg font-bold text-slate-900">{result.phone || "Non renseigné"}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-6">
+                        <div className="group">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Lieu de Résidence</p>
+                          <p className="text-lg font-bold text-slate-900 leading-snug">{result.address || "Non renseignée"}</p>
+                        </div>
+                        <div className="group">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Type de Demande</p>
+                          <p className="text-lg font-bold text-slate-900">Nouveau Permis de Conduire</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-10 border-t border-slate-100">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                          <Info className="w-5 h-5" />
+                        </div>
+                        <h4 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Note de l'administration</h4>
+                      </div>
+                      <div className="bg-blue-50/50 rounded-3xl p-8 border border-blue-100 relative">
+                        <div className="absolute -top-3 -left-3 text-blue-200">
+                          <FileText className="w-10 h-10" />
+                        </div>
+                        <p className="text-slate-700 font-medium leading-relaxed italic relative z-10">
+                          "{result.comment || "Votre dossier est actuellement en cours d'examen par nos services techniques. Aucune action supplémentaire n'est requise de votre part pour le moment."}"
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-6 md:p-12">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                      {/* Left Column: Photo & Basic Info */}
-                      <div className="lg:col-span-1 space-y-8">
-                        <div className="relative group">
-                          <div className="aspect-[3/4] rounded-[32px] overflow-hidden bg-slate-100 border-4 border-white shadow-2xl relative">
-                            {result.photo_url ? (
-                              <img 
-                                src={result.photo_url} 
-                                alt="Photo du bénéficiaire" 
-                                className="w-full h-full object-cover"
-                                referrerPolicy="no-referrer"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
-                                <UserCircle className="w-24 h-24 mb-4" />
-                                <span className="text-xs font-bold uppercase tracking-widest">Photo non disponible</span>
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
-                              <span className="text-white text-xs font-bold uppercase tracking-widest">Photo d'identité officielle</span>
-                            </div>
-                          </div>
+                  {/* ID Document Preview */}
+                  <div className="bg-slate-900 rounded-[40px] p-8 md:p-10 shadow-2xl relative overflow-hidden flex flex-col justify-between">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20 -mr-32 -mt-32" />
+                    
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-4 mb-8">
+                        <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/10">
+                          <ShieldCheck className="w-6 h-6" />
                         </div>
+                        <h3 className="text-xl font-black text-white font-display">Pièce d'Identité</h3>
+                      </div>
+                      <p className="text-slate-400 text-sm leading-relaxed mb-8">
+                        Document de référence utilisé pour la validation de votre identité civile.
+                      </p>
+                    </div>
 
-                        <div className="bg-slate-50 rounded-[32px] p-8 border border-slate-100">
-                          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                            <CreditCard className="w-4 h-4" />
-                            Catégorie de permis
-                          </h3>
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-blue-200">
-                              {result.license_category || "B"}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-slate-900 font-bold">Permis de conduire</span>
-                              <span className="text-slate-500 text-xs font-medium">Catégorie officielle</span>
-                            </div>
+                    <div className="relative z-10">
+                      <div className="aspect-[1.6/1] rounded-3xl overflow-hidden bg-white/5 border border-white/10 shadow-2xl group relative">
+                        {result.id_card_url ? (
+                          <img 
+                            src={result.id_card_url} 
+                            alt="ID Card" 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-white/10">
+                            <ImageIcon className="w-12 h-12 mb-2" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Non disponible</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="bg-white text-slate-900 px-6 py-3 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2">
+                            <Search className="w-4 h-4" />
+                            Agrandir
                           </div>
                         </div>
                       </div>
-
-                      {/* Middle & Right Column: Details & Status */}
-                      <div className="lg:col-span-2 space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="space-y-8">
-                            <div className="relative pl-16">
-                              <div className="absolute left-0 top-0 w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
-                                <User className="w-6 h-6 text-blue-600" />
-                              </div>
-                              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Bénéficiaire</h3>
-                              <p className="text-2xl font-extrabold text-slate-900 font-display">
-                                {result.first_name} {result.last_name}
-                              </p>
-                            </div>
-
-                            <div className="relative pl-16">
-                              <div className="absolute left-0 top-0 w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
-                                <Phone className="w-6 h-6 text-blue-600" />
-                              </div>
-                              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Téléphone</h3>
-                              <p className="text-xl font-bold text-slate-700">
-                                {result.phone || "Non renseigné"}
-                              </p>
-                            </div>
-
-                            <div className="relative pl-16">
-                              <div className="absolute left-0 top-0 w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
-                                <MapPin className="w-6 h-6 text-blue-600" />
-                              </div>
-                              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Adresse de résidence</h3>
-                              <p className="text-lg font-medium text-slate-600 leading-snug">
-                                {result.address || "Non renseignée"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-8">
-                            <div className="relative pl-16">
-                              <div className="absolute left-0 top-0 w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
-                                <Clock className="w-6 h-6 text-blue-600" />
-                              </div>
-                              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3">État d'avancement</h3>
-                              <div className={cn(
-                                "inline-flex items-center gap-3 px-6 py-3 rounded-2xl text-lg font-black shadow-sm border",
-                                result.status === "Validé" || result.status === "Permis disponible" ? "bg-emerald-50 text-emerald-700 border-emerald-200/50" :
-                                result.status === "Rejeté" ? "bg-red-50 text-red-700 border-red-200/50" :
-                                "bg-blue-50 text-blue-700 border-blue-200/50"
-                              )}>
-                                {result.status === "Validé" || result.status === "Permis disponible" ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-                                {result.status}
-                              </div>
-                            </div>
-
-                            <div className="bg-slate-50 rounded-[32px] p-8 border border-slate-100 relative overflow-hidden group">
-                              <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <FileText className="w-20 h-20 text-slate-900" />
-                              </div>
-                              <div className="relative z-10">
-                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                                  <Info className="w-4 h-4" />
-                                  Note de l'administration
-                                </h3>
-                                <p className="text-slate-700 leading-relaxed font-medium italic">
-                                  "{result.comment || "Aucun commentaire particulier pour le moment. Votre dossier suit son cours normal."}"
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* ID Card Display */}
-                        <div className="bg-slate-900 rounded-[32px] p-8 md:p-10 text-white relative overflow-hidden">
-                          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20 -mr-32 -mt-32" />
-                          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                            <div className="w-full md:w-1/2 space-y-4">
-                              <h3 className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                <CreditCard className="w-4 h-4" />
-                                Pièce d'identité
-                              </h3>
-                              <p className="text-slate-400 text-sm leading-relaxed">
-                                Document officiel utilisé pour la vérification de l'identité du demandeur. Ce document est strictement confidentiel.
-                              </p>
-                            </div>
-                            <div className="w-full md:w-1/2">
-                              <div className="aspect-video rounded-2xl overflow-hidden bg-white/5 border border-white/10 shadow-2xl group cursor-pointer relative">
-                                {result.id_card_url ? (
-                                  <img 
-                                    src={result.id_card_url} 
-                                    alt="Pièce d'identité" 
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                    referrerPolicy="no-referrer"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex flex-col items-center justify-center text-white/20">
-                                    <ImageIcon className="w-12 h-12 mb-2" />
-                                    <span className="text-[10px] font-bold uppercase tracking-widest">Document non scanné</span>
-                                  </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                                  <span className="bg-white text-slate-900 px-4 py-2 rounded-xl text-xs font-bold shadow-xl">Agrandir le document</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                      <div className="mt-6 flex items-center justify-between text-white/40 text-[10px] font-bold uppercase tracking-widest">
+                        <span>Document vérifié</span>
+                        <div className="flex gap-1">
+                          <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                          <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                          <div className="w-1 h-1 rounded-full bg-emerald-500" />
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Decorative Image Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="rounded-[32px] overflow-hidden h-80 shadow-2xl group">
-                    <img 
-                      src="https://images.unsplash.com/photo-1517673132405-a56a62b18caf?auto=format&fit=crop&q=80&w=1000" 
-                      alt="Safe driving" 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      referrerPolicy="no-referrer"
-                    />
+                {/* Footer Info */}
+                <div className="bg-white rounded-[32px] p-8 border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                      <Info className="w-5 h-5" />
+                    </div>
+                    <p className="text-sm text-slate-500 font-medium">
+                      Besoin d'aide ? Contactez notre support au <span className="text-slate-900 font-bold">01 02 03 04 05</span>
+                    </p>
                   </div>
-                  <div className="rounded-[32px] overflow-hidden h-80 shadow-2xl group">
-                    <img 
-                      src="https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=1000" 
-                      alt="Road trip" 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      referrerPolicy="no-referrer"
-                    />
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href);
+                        alert("Lien de suivi copié dans le presse-papier !");
+                      }}
+                      className="flex items-center justify-center gap-2 text-slate-600 font-bold hover:bg-slate-100 px-6 py-3 rounded-2xl transition-all border border-slate-200"
+                    >
+                      <Search className="w-5 h-5" />
+                      Copier le lien
+                    </button>
+                    <button 
+                      onClick={() => window.print()}
+                      className="flex items-center justify-center gap-2 bg-blue-600 text-white font-bold hover:bg-blue-700 px-6 py-3 rounded-2xl transition-all shadow-lg shadow-blue-200"
+                    >
+                      <FileText className="w-5 h-5" />
+                      Imprimer
+                    </button>
                   </div>
                 </div>
               </motion.div>
