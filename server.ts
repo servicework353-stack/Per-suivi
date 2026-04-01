@@ -12,17 +12,12 @@ import compression from "compression";
 
 dotenv.config();
 
-console.log("Environment check:");
-console.log("ADMIN_USERNAME defined:", !!process.env.ADMIN_USERNAME);
-console.log("ADMIN_PASSWORD defined:", !!process.env.ADMIN_PASSWORD);
-console.log("JWT_SECRET defined:", !!process.env.JWT_SECRET);
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || "admin").trim();
-const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "admin123").trim();
-const JWT_SECRET = (process.env.JWT_SECRET || "super-secret-key").trim();
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key";
 
 // --- DATABASE ABSTRACTION ---
 let db: any;
@@ -85,8 +80,6 @@ if (isPostgres) {
       last_updated TEXT NOT NULL,
       comment TEXT
     );
-    CREATE INDEX IF NOT EXISTS idx_tracking_code ON applications(tracking_code);
-    CREATE INDEX IF NOT EXISTS idx_last_updated ON applications(last_updated);
   `);
   
   // SQLite Migrations
@@ -101,7 +94,6 @@ if (isPostgres) {
 }
 
 const app = express();
-app.disable('etag');
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -124,28 +116,27 @@ const authenticateToken = (req: any, res: any, next: any) => {
 
 // Public: Get application by tracking code
 app.get("/api/track/:code", async (req, res) => {
-  const code = String(req.params.code || "").trim().toUpperCase();
+  const { code } = req.params;
   try {
     let application;
     if (isPostgres) {
-      const result = await db.query("SELECT * FROM applications WHERE UPPER(tracking_code) = $1", [code]);
+      const result = await db.query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
       application = result.rows[0];
     } else {
-      application = db.prepare("SELECT * FROM applications WHERE UPPER(tracking_code) = ?").get(code);
+      application = db.prepare("SELECT * FROM applications WHERE tracking_code = ?").get(code);
     }
 
     if (!application) {
-      return res.status(404).json({ error: "Dossier non trouvé. Vérifiez que vous avez bien saisi le code de suivi." });
+      return res.status(404).json({ error: "Dossier non trouvé" });
     }
     // Ensure users always get the latest data by disabling caching for this endpoint
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
-    res.set('Surrogate-Control', 'no-store');
     res.json(application);
   } catch (err) {
     console.error("Tracking API error:", err);
-    res.status(500).json({ error: "Erreur serveur lors de la recherche du dossier" });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -155,17 +146,11 @@ app.post("/api/admin/login", (req, res) => {
   const u = String(username || "").trim();
   const p = String(password || "").trim();
 
-  console.log(`Login attempt for user: "${u}"`);
-  console.log(`Configured ADMIN_USERNAME: "${ADMIN_USERNAME}"`);
-  
   if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
-    console.log("Login successful");
     const token = jwt.sign({ username: u }, JWT_SECRET, { expiresIn: "24h" });
     return res.json({ token });
   }
-  
-  console.log("Login failed: Invalid credentials");
-  res.status(401).json({ error: "Identifiants invalides. Veuillez vérifier votre identifiant et votre mot de passe." });
+  res.status(401).json({ error: "Identifiants invalides." });
 });
 
 // Admin: Get system status
@@ -240,8 +225,8 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
 // Admin: Update application
 app.put("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment } = req.body;
-  const final_last_updated = new Date().toISOString();
+  const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment, last_updated } = req.body;
+  const final_last_updated = last_updated || new Date().toISOString();
 
   try {
     let result;
@@ -305,7 +290,6 @@ async function startServer() {
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
-      res.set('Surrogate-Control', 'no-store');
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
