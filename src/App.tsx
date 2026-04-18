@@ -34,7 +34,13 @@ import {
   Phone,
   CreditCard,
   Image as ImageIcon,
-  UserCircle
+  UserCircle,
+  FileSearch,
+  ArrowRight,
+  Smartphone,
+  MessagesSquare,
+  Zap,
+  Star
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -74,7 +80,7 @@ const STATUS_OPTIONS = [
 
 // --- COMPONENTS ---
 
-const Header = () => (
+const Header = React.memo(() => (
   <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
       <Link to="/" className="flex items-center gap-3 group">
@@ -98,9 +104,9 @@ const Header = () => (
       </nav>
     </div>
   </header>
-);
+));
 
-const Footer = () => (
+const Footer = React.memo(() => (
   <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 py-16 md:py-24 overflow-hidden relative">
     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -166,7 +172,7 @@ const Footer = () => (
       </div>
     </div>
   </footer>
-);
+));
 
 // --- PAGES ---
 
@@ -181,192 +187,240 @@ const UserHome = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col">
-      <main className="flex-grow">
-        {/* Hero Section */}
-        <section className="relative bg-blue-600 py-16 md:py-32 px-4 overflow-hidden">
-          {/* Background Image with Overlay */}
-          <div className="absolute inset-0 z-0">
-            <img 
-              src="https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=2000" 
-              alt="Driving background" 
-              className="w-full h-full object-cover opacity-20 scale-105"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-blue-600/90 via-blue-600/70 to-blue-900/95" />
-          </div>
+    <div className="min-h-screen bg-white">
+      <main>
+        {/* Dynamic Background Pattern */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden h-[800px] z-0">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-[800px] bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.05)_0%,transparent_50%)]" />
+          <svg className="absolute top-0 left-0 w-full h-full opacity-[0.03]" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100" height="100" fill="url(#grid)" />
+          </svg>
+        </div>
 
-          <div className="relative z-10 max-w-5xl mx-auto text-center">
+        {/* Hero Section */}
+        <section className="relative pt-20 pb-32 md:pt-32 md:pb-48 px-4 z-10">
+          <div className="max-w-7xl mx-auto text-center">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-blue-100 text-xs md:text-sm font-semibold mb-8 border border-white/20 shadow-xl"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-3 bg-white border border-slate-200 px-4 py-2 rounded-2xl shadow-sm mb-10"
             >
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              Service Officiel de l'État
+              <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Service Officiel de l'Administration</span>
             </motion.div>
+
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-4xl md:text-7xl font-extrabold text-white mb-6 tracking-tight leading-[1.1] font-display"
+              className="text-5xl md:text-8xl font-black text-slate-900 mb-8 tracking-[-0.04em] leading-[0.9] font-display"
             >
-              Votre permis,<br className="hidden md:block" /> suivez son évolution.
+              Votre permis est <br />
+              <span className="text-blue-600 relative inline-block">
+                en route.
+                <svg className="absolute -bottom-2 left-0 w-full h-3 text-blue-100 -z-10" viewBox="0 0 100 10" preserveAspectRatio="none">
+                  <path d="M0 5 Q25 0 50 5 T100 5" stroke="currentColor" strokeWidth="10" fill="none" strokeLinecap="round" />
+                </svg>
+              </span>
             </motion.h1>
+            
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-blue-100 text-base md:text-xl mb-12 max-w-2xl mx-auto leading-relaxed opacity-90"
+              className="text-slate-500 text-lg md:text-2xl mb-16 max-w-2xl mx-auto leading-relaxed font-medium"
             >
-              Entrez votre code de suivi unique pour connaître l'état d'avancement de votre dossier en quelques secondes.
+              Suivez chaque étape de la fabrication à la livraison. <br className="hidden md:block" />
+              La transparence d'un service public nouvelle génération.
             </motion.p>
 
             <motion.form 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
               onSubmit={handleSearch}
-              className="relative max-w-xl mx-auto group"
+              className="relative max-w-2xl mx-auto"
             >
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-3xl blur opacity-25 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
-              <div className="relative">
-                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors hidden md:block">
-                  <FileText className="w-6 h-6" />
+              <div className="bg-white p-3 rounded-[32px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-slate-100 flex flex-col md:flex-row gap-3">
+                <div className="flex-grow relative group">
+                  <FileSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                  <input 
+                    type="text" 
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="Saisissez votre code de suivi (ex: PR-2024-882)..."
+                    className="w-full bg-slate-50 border-none rounded-2xl py-5 pl-16 pr-6 text-slate-900 focus:ring-0 text-lg font-bold placeholder:text-slate-300 transition-all placeholder:font-medium"
+                  />
                 </div>
-                <input 
-                  type="text" 
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="Entrez votre code de suivi..."
-                  className="w-full bg-white rounded-2xl md:rounded-3xl py-5 md:py-6 pl-7 md:pl-16 pr-16 text-slate-900 shadow-2xl focus:outline-none focus:ring-4 focus:ring-blue-400/50 transition-all text-base md:text-xl font-medium placeholder:text-slate-400"
-                />
                 <button 
                   type="submit"
-                  className="absolute right-2.5 top-2.5 bottom-2.5 bg-blue-600 text-white px-5 md:px-8 rounded-xl md:rounded-2xl hover:bg-blue-700 transition-all flex items-center justify-center shadow-lg shadow-blue-500/30 active:scale-95 group/btn"
+                  className="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 flex items-center justify-center gap-3 group"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="hidden md:inline font-bold">Rechercher</span>
-                    <Search className="w-6 h-6 group-hover/btn:scale-110 transition-transform" />
-                  </div>
+                  Suivre mon dossier
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
+              </div>
+              <div className="mt-8 flex flex-wrap justify-center gap-8 opacity-40 grayscale hover:opacity-80 hover:grayscale-0 transition-all duration-500">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                  <ShieldCheck className="w-4 h-4 text-blue-600" /> Sécurité 256-bit
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                  <Clock className="w-4 h-4 text-blue-600" /> Temps réel
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                  <CheckCircle2 className="w-4 h-4 text-blue-600" /> Source Officielle
+                </div>
               </div>
             </motion.form>
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="py-20 md:py-32 bg-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-50 -mr-32 -mt-32" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-50 -ml-32 -mb-32" />
-          
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="text-center mb-20">
-              <h2 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-6 font-display">Un service pensé pour vous</h2>
-              <p className="text-slate-500 max-w-2xl mx-auto text-lg">Nous mettons tout en œuvre pour simplifier vos démarches et vous offrir une visibilité totale sur votre dossier.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16">
+        {/* Dynamic Bento Grid Showcase */}
+        <section className="py-24 bg-slate-50 border-y border-slate-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-12 auto-rows-[240px] gap-8">
+              {/* Main Visual Feature */}
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="text-center group"
+                whileHover={{ y: -5 }}
+                className="md:col-span-8 md:row-span-2 bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden relative group p-12 flex flex-col justify-between"
               >
-                <div className="relative mb-8">
-                  <div className="w-24 h-24 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-500 shadow-sm border border-blue-100 relative z-10">
-                    <Clock className="w-12 h-12 text-blue-600" />
-                  </div>
-                  <div className="absolute inset-0 bg-blue-200 rounded-3xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity" />
+                <div className="relative z-10 max-w-sm">
+                  <span className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-4 block">Innovation</span>
+                  <h3 className="text-4xl font-black text-slate-900 font-display mb-6 leading-none">Une interface pensée pour la clarté.</h3>
+                  <p className="text-slate-500 font-medium leading-relaxed">
+                    Nous avons supprimé le superflu pour vous offrir une expérience de consultation pure, rapide et fiable sur tous vos appareils.
+                  </p>
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-4 font-display">Temps Réel</h3>
-                <p className="text-slate-600 leading-relaxed">Accédez instantanément aux dernières mises à jour de votre dossier effectuées par nos services.</p>
-              </motion.div>
-              
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 }}
-                className="text-center group"
-              >
-                <div className="relative mb-8">
-                  <div className="w-24 h-24 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-500 shadow-sm border border-emerald-100 relative z-10">
-                    <ShieldCheck className="w-12 h-12 text-emerald-600" />
-                  </div>
-                  <div className="absolute inset-0 bg-emerald-200 rounded-3xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity" />
+                <div className="absolute right-0 bottom-0 w-2/3 h-full pointer-events-none translate-x-32 translate-y-32 group-hover:translate-x-24 group-hover:translate-y-24 transition-transform duration-700">
+                  <div className="w-full h-full bg-blue-50/50 rounded-full blur-3xl" />
+                  <img 
+                    src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=1000" 
+                    alt="Process Dashboard" 
+                    className="absolute top-0 right-0 w-full h-full object-cover rounded-[100px] shadow-2xl skew-x-12 opacity-80"
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                  />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-4 font-display">Sécurisé</h3>
-                <p className="text-slate-600 leading-relaxed">Vos données sont protégées et accessibles uniquement via votre code de suivi personnel unique.</p>
               </motion.div>
 
+              {/* Smaller Stat Feature */}
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 }}
-                className="text-center group"
+                whileHover={{ y: -5 }}
+                className="md:col-span-4 bg-blue-600 rounded-[40px] p-10 text-white flex flex-col justify-between relative overflow-hidden group"
               >
-                <div className="relative mb-8">
-                  <div className="w-24 h-24 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-500 shadow-sm border border-indigo-100 relative z-10">
-                    <Info className="w-12 h-12 text-indigo-600" />
-                  </div>
-                  <div className="absolute inset-0 bg-indigo-200 rounded-3xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity" />
+                <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-125 transition-transform duration-700">
+                  <Star className="w-24 h-24" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-4 font-display">Transparence</h3>
-                <p className="text-slate-600 leading-relaxed">Consultez les commentaires détaillés de l'administration pour comprendre chaque étape de votre demande.</p>
+                <h4 className="text-5xl font-black font-display leading-[0.8] mb-4">98%</h4>
+                <p className="text-blue-100 font-bold uppercase tracking-widest text-[10px]">Taux de satisfaction usagers</p>
+                <div className="mt-8 flex -space-x-3">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="w-10 h-10 rounded-full border-4 border-blue-600 bg-slate-100 overflow-hidden shadow-sm">
+                      <img src={`https://picsum.photos/seed/${i + 10}/100/100`} alt="avatar" />
+                    </div>
+                  ))}
+                  <div className="w-10 h-10 rounded-full border-4 border-blue-600 bg-white flex items-center justify-center text-[10px] font-black text-blue-600">
+                    +2K
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Icon Info Feature */}
+              <motion.div 
+                whileHover={{ y: -5 }}
+                className="md:col-span-4 bg-white rounded-[40px] border border-slate-200 shadow-sm p-10 flex flex-col justify-center"
+              >
+                <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-110 transition-transform">
+                  <ShieldCheck className="w-7 h-7" />
+                </div>
+                <h4 className="text-xl font-bold text-slate-900 mb-2">Authenticité</h4>
+                <p className="text-slate-500 text-sm font-medium leading-relaxed">Vérification instantanée auprès des autorités compétentes.</p>
               </motion.div>
             </div>
           </div>
         </section>
 
-        {/* Visual Showcase Section */}
-        <section className="py-20 bg-slate-50">
+        {/* Feature Highlights */}
+        <section className="py-24 md:py-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-              <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                className="space-y-8"
-              >
-                <span className="text-blue-600 font-bold uppercase tracking-[0.2em] text-sm">Modernisation</span>
-                <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 font-display leading-tight">Une interface fluide pour un suivi sans stress</h2>
-                <p className="text-slate-600 text-lg leading-relaxed">
-                  Fini les appels interminables et les déplacements inutiles. Notre plateforme centralise toutes les informations relatives à votre permis de conduire.
+            <div className="text-center mb-24">
+              <span className="text-blue-600 font-bold uppercase tracking-[0.4em] text-xs mb-6 block">Engagement</span>
+              <h2 className="text-4xl md:text-6xl font-black text-slate-900 font-display leading-[0.9]">
+                Le futur de votre <br />
+                administratif est ici.
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-20">
+              <div className="space-y-8">
+                <div className="w-16 h-16 bg-blue-50 rounded-[20px] flex items-center justify-center text-blue-600">
+                  <Smartphone className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900">Mobilité totale</h3>
+                <p className="text-slate-500 font-medium leading-relaxed">
+                  Consultez l'avancement de votre dossier n'importe où, n'importe quand. Notre site s'adapte parfaitement à votre smartphone.
                 </p>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="text-3xl font-bold text-blue-600 mb-2">24/7</div>
-                    <div className="text-sm text-slate-500 font-bold uppercase tracking-wider">Disponibilité</div>
-                  </div>
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="text-3xl font-bold text-emerald-600 mb-2">100%</div>
-                    <div className="text-sm text-slate-500 font-bold uppercase tracking-wider">Digital</div>
-                  </div>
+              </div>
+
+              <div className="space-y-8">
+                <div className="w-16 h-16 bg-indigo-50 rounded-[20px] flex items-center justify-center text-indigo-600">
+                  <MessagesSquare className="w-8 h-8" />
                 </div>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
+                <h3 className="text-2xl font-black text-slate-900">Support intégré</h3>
+                <p className="text-slate-500 font-medium leading-relaxed">
+                  Une question sur votre statut ? Nos agents peuvent laisser des commentaires détaillés pour vous guider dans vos démarches.
+                </p>
+              </div>
+
+              <div className="space-y-8">
+                <div className="w-16 h-16 bg-emerald-50 rounded-[20px] flex items-center justify-center text-emerald-600">
+                  <Zap className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900">Vitesse éclair</h3>
+                <p className="text-slate-500 font-medium leading-relaxed">
+                  Aucun compte à créer. Pas de formulaire complexe. Juste votre code, et l'information dont vous avez besoin.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Branding Section */}
+        <section className="px-4 pb-24">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-slate-900 rounded-[60px] p-12 md:p-24 text-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
+                <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <path d="M0 0 L100 100 M100 0 L0 100" stroke="white" strokeWidth="0.1" />
+                </svg>
+              </div>
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="relative"
+                className="relative z-10"
               >
-                <div className="absolute -inset-4 bg-blue-600/10 rounded-[40px] blur-2xl" />
-                <div className="relative rounded-[32px] overflow-hidden shadow-2xl border-8 border-white">
-                  <img 
-                    src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&q=80&w=1000" 
-                    alt="Modern driving" 
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                {/* Floating Badge */}
-                <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-3xl shadow-xl border border-slate-100 max-w-[200px] hidden md:block">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">En Direct</span>
-                  </div>
-                  <p className="text-sm font-bold text-slate-800 leading-snug">Mises à jour quotidiennes des dossiers</p>
+                <h2 className="text-4xl md:text-7xl font-black text-white font-display mb-10 leading-[0.9]">
+                  Prêt à prendre <br className="hidden md:block" /> la route ?
+                </h2>
+                <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+                  <button 
+                    onClick={() => {
+                      const searchInput = document.querySelector('input');
+                      searchInput?.focus();
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="bg-white text-slate-900 px-12 py-6 rounded-3xl font-black uppercase tracking-widest text-sm hover:bg-blue-50 transition-all shadow-2xl active:scale-95"
+                  >
+                    Vérifier mon dossier maintenant
+                  </button>
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                    ou consultez nos <a href="#" className="text-white hover:text-blue-400 underline underline-offset-4">mentions légales</a>
+                  </p>
                 </div>
               </motion.div>
             </div>
@@ -496,6 +550,7 @@ const TrackingResultPage = () => {
                               alt="Identité" 
                               className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
+                              loading="lazy"
                             />
                           ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center text-slate-200">
@@ -672,6 +727,7 @@ const TrackingResultPage = () => {
                             alt="ID Card" 
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                             referrerPolicy="no-referrer"
+                            loading="lazy"
                           />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center text-white/10">
@@ -794,6 +850,7 @@ const AdminLogin = () => {
             alt="Office background" 
             className="absolute inset-0 w-full h-full object-cover"
             referrerPolicy="no-referrer"
+            loading="lazy"
           />
           <div className="absolute inset-0 bg-blue-600/90 mix-blend-multiply" />
           <div className="absolute inset-0 p-12 flex flex-col justify-between text-white">

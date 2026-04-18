@@ -52,6 +52,7 @@ if (isPostgres) {
           last_updated TEXT NOT NULL,
           comment TEXT
         );
+        CREATE INDEX IF NOT EXISTS idx_tracking_code ON applications(tracking_code);
       `);
 
       // Add new columns if they don't exist
@@ -86,6 +87,7 @@ if (isPostgres) {
       last_updated TEXT NOT NULL,
       comment TEXT
     );
+    CREATE INDEX IF NOT EXISTS idx_tracking_code_sqlite ON applications(tracking_code);
   `);
   
   // SQLite Migrations
