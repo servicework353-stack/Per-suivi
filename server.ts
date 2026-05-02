@@ -23,58 +23,68 @@ console.log(`Admin credentials configured: Username="${ADMIN_USERNAME}", Passwor
 
 // --- DATABASE ABSTRACTION ---
 let db: any;
-const isPostgres = !!process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL;
+const isPostgres = !!connectionString;
 
 if (isPostgres) {
-  console.log("--- PRODUCTION MODE: Using PostgreSQL ---");
-  db = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-  });
-  
-  // Initialize Postgres Table & Migrations
-  const initDb = async () => {
-    try {
-      // Test connection
-      await db.query("SELECT 1");
-      console.log("PostgreSQL connection successful");
+  if (connectionString.startsWith("https://")) {
+    console.error("!!! FATAL ERROR: DATABASE_URL seems to be a REST API URL (starting with https://).");
+    console.error("!!! For Supabase, you need the PostgreSQL Connection String (URI).");
+    console.error("!!! It should start with postgresql:// or postgres://");
+    console.log("--- Falling back to SQLite to prevent crash ---");
+  } else {
+    console.log("--- PRODUCTION MODE: Using PostgreSQL ---");
+    db = new Pool({
+      connectionString: connectionString,
+      ssl: { rejectUnauthorized: false },
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+    
+    // Initialize Postgres Table & Migrations
+    const initDb = async () => {
+      try {
+        // Test connection
+        await db.query("SELECT 1");
+        console.log("PostgreSQL connection successful");
 
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS applications (
-          id SERIAL PRIMARY KEY,
-          tracking_code TEXT UNIQUE NOT NULL,
-          first_name TEXT,
-          last_name TEXT,
-          status TEXT NOT NULL,
-          last_updated TEXT NOT NULL,
-          comment TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_tracking_code ON applications(tracking_code);
-      `);
-
-      // Add new columns if they don't exist
-      const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
-      for (const col of columns) {
         await db.query(`
-          DO $$ 
-          BEGIN 
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='applications' AND column_name='${col}') THEN 
-              ALTER TABLE applications ADD COLUMN ${col} TEXT; 
-            END IF; 
-          END $$;
+          CREATE TABLE IF NOT EXISTS applications (
+            id SERIAL PRIMARY KEY,
+            tracking_code TEXT UNIQUE NOT NULL,
+            first_name TEXT,
+            last_name TEXT,
+            status TEXT NOT NULL,
+            last_updated TEXT NOT NULL,
+            comment TEXT
+          );
+          CREATE INDEX IF NOT EXISTS idx_tracking_code ON applications(tracking_code);
         `);
+
+        // Add new columns if they don't exist
+        const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
+        for (const col of columns) {
+          await db.query(`
+            DO $$ 
+            BEGIN 
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='applications' AND column_name='${col}') THEN 
+                ALTER TABLE applications ADD COLUMN ${col} TEXT; 
+              END IF; 
+            END $$;
+          `);
+        }
+        console.log("PostgreSQL Database & Migrations Ready");
+      } catch (err) {
+        console.error("Database init error:", err);
       }
-      console.log("PostgreSQL Database & Migrations Ready");
-    } catch (err) {
-      console.error("Database init error:", err);
-    }
-  };
-  initDb();
-} else {
-  console.log("--- DEMO MODE: Using SQLite (Data will be lost on restart) ---");
+    };
+    initDb();
+  }
+}
+
+if (!db || connectionString?.startsWith("https://")) {
+  console.log("--- CONFIG MODE: Using SQLite ---");
   const dbPath = process.env.DATABASE_PATH || "permis.db";
   db = new Database(dbPath);
   db.exec(`
