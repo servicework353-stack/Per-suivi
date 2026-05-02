@@ -1108,9 +1108,16 @@ const AdminDashboard = () => {
                     Stockage : {status.database}
                   </div>
                   {!status.dbConnected && (
-                    <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Base de données suspendue
+                    <div className="flex flex-col gap-2">
+                      <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Base de données suspendue
+                      </div>
+                      {status.dbError && (
+                        <div className="text-[9px] font-mono text-red-500 max-w-xs break-words bg-red-50/50 p-2 rounded-lg border border-red-100">
+                          Erreur : {status.dbError}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

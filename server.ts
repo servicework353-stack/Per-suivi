@@ -34,20 +34,27 @@ if (isPostgres) {
     console.log("--- Falling back to SQLite to prevent crash ---");
   } else {
     console.log("--- PRODUCTION MODE: Using PostgreSQL ---");
+    
+    // Check for common [YOUR-PASSWORD] mistake
+    if (connectionString.includes("[YOUR-PASSWORD]") || connectionString.includes("[PASSWORD]")) {
+      console.warn("!!! WARNING: Your DATABASE_URL contains placeholder '[YOUR-PASSWORD]'. Please replace it with your real password in the app settings.");
+    }
+
     db = new Pool({
       connectionString: connectionString,
       ssl: { rejectUnauthorized: false },
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased to 10s for remote DBs
     });
     
     // Initialize Postgres Table & Migrations
     const initDb = async () => {
       try {
         // Test connection
+        const start = Date.now();
         await db.query("SELECT 1");
-        console.log("PostgreSQL connection successful");
+        console.log(`PostgreSQL connection successful (${Date.now() - start}ms)`);
 
         await db.query(`
           CREATE TABLE IF NOT EXISTS applications (
@@ -186,22 +193,27 @@ app.post("/api/admin/login", (req, res) => {
 // Admin: Get system status
 app.get("/api/admin/status", authenticateToken, async (req, res) => {
   let dbConnected = false;
+  let dbError = null;
   if (isPostgres) {
     try {
+      if (!db) throw new Error("Pool de connexion non initialisé");
       await db.query("SELECT 1");
       dbConnected = true;
-    } catch (e) {
+    } catch (e: any) {
       dbConnected = false;
+      dbError = e.message;
+      console.error("Status Check - DB Error:", e.message);
     }
   } else {
-    dbConnected = true; // SQLite is always "connected" locally
+    dbConnected = true; 
   }
 
   res.json({
-    database: isPostgres ? "PostgreSQL (Permanent)" : "SQLite (Temporaire - Données perdues au redémarrage)",
+    database: isPostgres ? "Point d'accès PostgreSQL" : "Stockage SQLite (Local)",
     mode: process.env.NODE_ENV || "development",
     isPostgres,
-    dbConnected
+    dbConnected,
+    dbError: dbConnected ? null : dbError
   });
 });
 
