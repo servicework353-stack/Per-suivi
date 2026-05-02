@@ -1122,8 +1122,9 @@ const AdminDashboard = () => {
                           <div className="text-sm text-red-600 font-medium leading-relaxed">
                             {status.dbError}
                           </div>
-                          <div className="mt-2 text-[10px] text-red-500/70 italic p-3 bg-white/50 rounded-xl border border-red-100">
-                            Astuce : Vérifiez votre variable DATABASE_URL dans les paramètres "Settings" de Google AI Studio. 
+                          <div className="mt-2 text-[10px] text-red-500/70 italic p-3 bg-white/50 rounded-xl border border-red-100 flex flex-col gap-1">
+                            <span>💡 <b>Où trouver les paramètres ?</b></span>
+                            <span>Cliquez sur l'icône ⚙️ <b>Settings</b> dans la barre latérale gauche (ou le menu en haut) de Google AI Studio.</span>
                             {status.dbError.includes("[YOUR-PASSWORD]") && " N'oubliez pas d'effacer les crochets [ ]."}
                           </div>
                         </div>

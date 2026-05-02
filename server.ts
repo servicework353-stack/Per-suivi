@@ -213,13 +213,15 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
         dbError = "Veuillez remplacer [YOUR-PASSWORD] par votre mot de passe réel dans les paramètres de l'application (Settings).";
       } else if (e.message.includes("password authentication failed")) {
         dbError = "Le mot de passe de la base de données est incorrect. Vérifiez vos identifiants.";
-      } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT")) {
+      } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("terminated unexpectedly")) {
         if (connectionString?.includes("dpg-") && !connectionString?.includes(".render.com")) {
-          dbError = "Erreur Render : Vous utilisez une URL 'Internal'. Veuillez copier la 'External Connection String' depuis votre tableau de bord Render.";
+          dbError = "ERREUR RENDER : Vous utilisez l'URL INTERNE. Veuillez copier la 'External Connection String' depuis Render et la coller dans les 'Settings' de AI Studio.";
+        } else if (e.message.includes("terminated unexpectedly")) {
+          dbError = "La connexion a été coupée. Vérifiez que vous utilisez bien l'URL EXTERNE de votre base de données.";
         } else if (connectionString?.includes("supabase.co")) {
-          dbError = "Impossible de joindre Supabase. Vérifiez que votre projet n'est pas en pause ou que l'URL est correcte.";
+          dbError = "Impossible de joindre Supabase. Vérifiez que votre projet n'est pas en pause.";
         } else {
-          dbError = "Impossible de joindre le serveur de base de données. Vérifiez l'URL de l'hôte (Host) et votre connexion internet.";
+          dbError = "Impossible de joindre le serveur de base de données. Vérifiez l'URL de l'hôte (Host).";
         }
       } else {
         dbError = e.message;
