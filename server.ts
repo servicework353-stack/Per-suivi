@@ -210,11 +210,19 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       
       // Add a helpful hint for common mistakes
       if (connectionString?.includes("[YOUR-PASSWORD]") || connectionString?.includes("[PASSWORD]")) {
-        dbError = "Veuillez remplacer [YOUR-PASSWORD] par votre mot de passe réel dans les paramètres de l'application.";
+        dbError = "Veuillez remplacer [YOUR-PASSWORD] par votre mot de passe réel dans les paramètres de l'application (Settings).";
       } else if (e.message.includes("password authentication failed")) {
-        dbError = "Le mot de passe de la base de données est incorrect.";
+        dbError = "Le mot de passe de la base de données est incorrect. Vérifiez vos identifiants.";
       } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT")) {
-        dbError = "Impossible de joindre le serveur Supabase. Vérifiez l'URL de l'hôte.";
+        if (connectionString?.includes("dpg-") && !connectionString?.includes(".render.com")) {
+          dbError = "Erreur Render : Vous utilisez une URL 'Internal'. Veuillez copier la 'External Connection String' depuis votre tableau de bord Render.";
+        } else if (connectionString?.includes("supabase.co")) {
+          dbError = "Impossible de joindre Supabase. Vérifiez que votre projet n'est pas en pause ou que l'URL est correcte.";
+        } else {
+          dbError = "Impossible de joindre le serveur de base de données. Vérifiez l'URL de l'hôte (Host) et votre connexion internet.";
+        }
+      } else {
+        dbError = e.message;
       }
       
       console.error("Status Check - DB Error:", e.message);
