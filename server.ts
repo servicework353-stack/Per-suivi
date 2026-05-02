@@ -24,22 +24,17 @@ console.log(`Admin credentials configured: Username="${ADMIN_USERNAME}", Passwor
 // --- DATABASE ABSTRACTION ---
 let db: any;
 const connectionString = process.env.DATABASE_URL;
-const isPostgres = !!connectionString;
+let dbMode: 'postgres' | 'sqlite' = 'sqlite';
 
-if (isPostgres) {
-  if (connectionString.startsWith("https://")) {
-    console.error("!!! FATAL ERROR: DATABASE_URL seems to be a REST API URL (starting with https://).");
-    console.error("!!! For Supabase, you need the PostgreSQL Connection String (URI).");
-    console.error("!!! It should start with postgresql:// or postgres://");
-    console.log("--- Falling back to SQLite to prevent crash ---");
-  } else {
-    console.log("--- PRODUCTION MODE: Using PostgreSQL ---");
-    
-    // Check for common [YOUR-PASSWORD] mistake
-    if (connectionString.includes("[YOUR-PASSWORD]") || connectionString.includes("[PASSWORD]")) {
-      console.warn("!!! WARNING: Your DATABASE_URL contains placeholder '[YOUR-PASSWORD]'. Please replace it with your real password in the app settings.");
-    }
+if (connectionString && !connectionString.startsWith("https://")) {
+  console.log("--- PRODUCTION MODE: Trying PostgreSQL ---");
+  
+  // Check for common [YOUR-PASSWORD] mistake
+  if (connectionString.includes("[YOUR-PASSWORD]") || connectionString.includes("[PASSWORD]")) {
+    console.warn("!!! WARNING: Your DATABASE_URL contains placeholder '[YOUR-PASSWORD]'. Please replace it with your real password in the app settings.");
+  }
 
+  try {
     db = new Pool({
       connectionString: connectionString,
       ssl: { rejectUnauthorized: false },
@@ -47,6 +42,7 @@ if (isPostgres) {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000, // Increased to 10s for remote DBs
     });
+    dbMode = 'postgres';
     
     // Initialize Postgres Table & Migrations
     const initDb = async () => {
@@ -87,11 +83,18 @@ if (isPostgres) {
       }
     };
     initDb();
+  } catch (err) {
+    console.error("Failed to initialize PostgreSQL pool:", err);
+    dbMode = 'sqlite';
   }
 }
 
-if (!db || connectionString?.startsWith("https://")) {
-  console.log("--- CONFIG MODE: Using SQLite ---");
+if (dbMode === 'sqlite') {
+  if (connectionString?.startsWith("https://")) {
+    console.error("!!! FATAL ERROR: DATABASE_URL is a REST API URL (starting with https://).");
+    console.error("!!! For Supabase, you need the PostgreSQL Connection String (URI).");
+  }
+  console.log("--- MODE: Using SQLite ---");
   const dbPath = process.env.DATABASE_PATH || "permis.db";
   db = new Database(dbPath);
   db.exec(`
@@ -117,6 +120,8 @@ if (!db || connectionString?.startsWith("https://")) {
     }
   }
 }
+
+const isPostgres = dbMode === 'postgres';
 
 const app = express();
 app.use(compression());
@@ -202,6 +207,16 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
     } catch (e: any) {
       dbConnected = false;
       dbError = e.message;
+      
+      // Add a helpful hint for common mistakes
+      if (connectionString?.includes("[YOUR-PASSWORD]") || connectionString?.includes("[PASSWORD]")) {
+        dbError = "Veuillez remplacer [YOUR-PASSWORD] par votre mot de passe réel dans les paramètres de l'application.";
+      } else if (e.message.includes("password authentication failed")) {
+        dbError = "Le mot de passe de la base de données est incorrect.";
+      } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT")) {
+        dbError = "Impossible de joindre le serveur Supabase. Vérifiez l'URL de l'hôte.";
+      }
+      
       console.error("Status Check - DB Error:", e.message);
     }
   } else {

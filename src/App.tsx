@@ -948,7 +948,7 @@ const AdminLogin = () => {
 const AdminDashboard = () => {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<{ database: string, isPostgres: boolean, dbConnected: boolean } | null>(null);
+  const [status, setStatus] = useState<{ database: string, isPostgres: boolean, dbConnected: boolean, dbError: string | null } | null>(null);
   const [editingApp, setEditingApp] = useState<Partial<Application> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -1114,8 +1114,18 @@ const AdminDashboard = () => {
                         Base de données suspendue
                       </div>
                       {status.dbError && (
-                        <div className="text-[9px] font-mono text-red-500 max-w-xs break-words bg-red-50/50 p-2 rounded-lg border border-red-100">
-                          Erreur : {status.dbError}
+                        <div className="bg-red-900/10 backdrop-blur-sm border border-red-200 p-4 rounded-2xl flex flex-col gap-2 max-w-md animate-in fade-in slide-in-from-top-4 duration-500">
+                          <div className="flex items-center gap-2 text-red-700 font-bold text-xs uppercase tracking-wider">
+                            <AlertCircle className="w-4 h-4" />
+                            Détails de l'interruption
+                          </div>
+                          <div className="text-sm text-red-600 font-medium leading-relaxed">
+                            {status.dbError}
+                          </div>
+                          <div className="mt-2 text-[10px] text-red-500/70 italic p-3 bg-white/50 rounded-xl border border-red-100">
+                            Astuce : Vérifiez votre variable DATABASE_URL dans les paramètres "Settings" de Google AI Studio. 
+                            {status.dbError.includes("[YOUR-PASSWORD]") && " N'oubliez pas d'effacer les crochets [ ]."}
+                          </div>
                         </div>
                       )}
                     </div>
