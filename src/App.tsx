@@ -1130,12 +1130,26 @@ const AdminDashboard = () => {
                           <div className="space-y-4">
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Étapes pour réparer :</p>
                             <div className="grid grid-cols-1 gap-2">
-                              {[
+                              {status.dbError?.includes("RENDER") ? [
                                 { t: "Allez sur votre tableau de bord Render", c: "dashboard.render.com" },
                                 { t: "Cliquez sur votre base de données", c: "ma_base_permis2" },
                                 { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite" },
                                 { t: "Choisissez l'onglet 'External Connection'", c: "IMPORTANT" },
                                 { t: "Copiez le lien (External Connection String)", c: "Commence par postgresql://" }
+                              ].map((step, i) => (
+                                <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                  <span className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black">{i+1}</span>
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-slate-700">{step.t}</span>
+                                    <span className="text-[10px] text-slate-400 font-medium">{step.c}</span>
+                                  </div>
+                                </div>
+                              )) : [
+                                { t: "Allez sur votre tableau de bord Supabase", c: "supabase.com" },
+                                { t: "Allez dans Settings -> Database", c: "Barre latérale" },
+                                { t: "Cherchez 'Connection string'", c: "Section Connection Info" },
+                                { t: "Choisissez l'onglet 'URI'", c: "Format postgresql://" },
+                                { t: "Copiez le lien et remplacez [YOUR-PASSWORD]", c: "Utilisez votre mot de passe réel" }
                               ].map((step, i) => (
                                 <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                   <span className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black">{i+1}</span>

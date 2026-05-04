@@ -223,15 +223,15 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       if (connStr.includes("[YOUR-PASSWORD]") || connStr.includes("[PASSWORD]")) {
         dbError = "MOT DE PASSE MANQUANT : Vous avez laissé '[YOUR-PASSWORD]'. Remplacez-le par votre vrai mot de passe dans les Settings.";
       } else if (e.message.includes("password authentication failed")) {
-        dbError = "MOT DE PASSE INCORRECT : Le mot de passe pour '" + connStr.split('@')[1]?.split('.')[0] + "' est invalide.";
+        dbError = "MOT DE PASSE INCORRECT : Vérifiez votre mot de passe Supabase. Si votre mot de passe contient des caractères spéciaux comme @, vous devez utiliser l'URL de connexion encodée (Connection String).";
       } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("terminated unexpectedly") || e.message.includes("ECONNREFUSED")) {
         
         if (isRenderHost && hasDashA) {
           dbError = "ERREUR RENDER (URL INTERNE) : Vous utilisez l'URL 'Internal' (qui finit par -a). Sur Render, copiez la 'External Connection String' à la place.";
         } else if (e.message.includes("terminated unexpectedly")) {
-          dbError = "CONNEXION INTERROMPUE : Le serveur de base de données a fermé la connexion. Vérifiez si vous devez autoriser l'accès IP (0.0.0.0/0).";
+          dbError = "CONNEXION INTERROMPUE : Le serveur a fermé la connexion. Sur Supabase, vérifiez que votre projet n'est pas suspendu.";
         } else if (connStr.includes("supabase.co")) {
-          dbError = "SUPABASE HORS LIGNE : Votre projet est peut-être en pause ou l'URL est erronée.";
+          dbError = "SUPABASE INACCESSIBLE : Le host '" + connStr.split('@')[1]?.split(':')[0] + "' ne répond pas. Vérifiez que l'URL est correcte ou que le projet n'est pas en pause.";
         } else {
           dbError = "HÔTE INACCESSIBLE : Impossible de trouver ou joindre '" + (connStr.split('@')[1]?.split('/')[0] || "serveur") + "'.";
         }
