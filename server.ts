@@ -35,23 +35,30 @@ if (connectionString && !connectionString.startsWith("https://")) {
   }
 
   try {
-    db = new Pool({
-      connectionString: connectionString,
-      ssl: { rejectUnauthorized: false },
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000, // Increased to 10s for remote DBs
-    });
-    dbMode = 'postgres';
+    const trimmedConn = connectionString.trim();
+    const isInternal = trimmedConn.includes("dpg-") && (trimmedConn.includes("-a.") || trimmedConn.endsWith("-a"));
+    
+    if (isInternal) {
+      console.error("!!! ERREUR CRITIQUE : Vous utilisez une URL 'Internal' de Render.");
+      dbMode = 'sqlite';
+    } else {
+      db = new Pool({
+        connectionString: trimmedConn,
+        ssl: { rejectUnauthorized: false },
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000, 
+      });
+      dbMode = 'postgres';
+    }
     
     // Initialize Postgres Table & Migrations
     const initDb = async () => {
+      if (dbMode !== 'postgres') return;
       try {
-        // Test connection
-        const start = Date.now();
         await db.query("SELECT 1");
-        console.log(`PostgreSQL connection successful (${Date.now() - start}ms)`);
-
+        console.log("PostgreSQL connection successful");
+        
         await db.query(`
           CREATE TABLE IF NOT EXISTS applications (
             id SERIAL PRIMARY KEY,
@@ -79,7 +86,7 @@ if (connectionString && !connectionString.startsWith("https://")) {
         }
         console.log("PostgreSQL Database & Migrations Ready");
       } catch (err) {
-        console.error("Database init error:", err);
+        console.error("PostgreSQL ping or migration failed:", err);
       }
     };
     initDb();
@@ -208,21 +215,25 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       dbConnected = false;
       dbError = e.message;
       
+      const connStr = (connectionString || "").trim();
+      const isRenderHost = connStr.includes("render.com") || connStr.includes("dpg-");
+      const hasDashA = connStr.includes("-a.") || connStr.includes("-a:") || connStr.endsWith("-a");
+      
       // Add a helpful hint for common mistakes
-      if (connectionString?.includes("[YOUR-PASSWORD]") || connectionString?.includes("[PASSWORD]")) {
-        dbError = "Veuillez remplacer [YOUR-PASSWORD] par votre mot de passe réel dans les paramètres de l'application (Settings).";
+      if (connStr.includes("[YOUR-PASSWORD]") || connStr.includes("[PASSWORD]")) {
+        dbError = "MOT DE PASSE MANQUANT : Vous avez laissé '[YOUR-PASSWORD]'. Remplacez-le par votre vrai mot de passe dans les Settings.";
       } else if (e.message.includes("password authentication failed")) {
-        dbError = "Le mot de passe de la base de données est incorrect. Vérifiez vos identifiants.";
-      } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("terminated unexpectedly")) {
-        const isRenderInternal = connectionString?.includes("dpg-") && (connectionString?.includes("-a.") || connectionString?.endsWith("-a"));
-        if (isRenderInternal) {
-          dbError = "ERREUR RENDER : Vous avez copié l'URL 'Internal'. Allez sur Render, cherchez 'External Connection String', et copiez-la dans les Settings ici.";
+        dbError = "MOT DE PASSE INCORRECT : Le mot de passe pour '" + connStr.split('@')[1]?.split('.')[0] + "' est invalide.";
+      } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("terminated unexpectedly") || e.message.includes("ECONNREFUSED")) {
+        
+        if (isRenderHost && hasDashA) {
+          dbError = "ERREUR RENDER (URL INTERNE) : Vous utilisez l'URL 'Internal' (qui finit par -a). Sur Render, copiez la 'External Connection String' à la place.";
         } else if (e.message.includes("terminated unexpectedly")) {
-          dbError = "La connexion a été coupée. Vérifiez que vous utilisez bien l'URL EXTERNE de votre base de données.";
-        } else if (connectionString?.includes("supabase.co")) {
-          dbError = "Impossible de joindre Supabase. Vérifiez que votre projet n'est pas en pause.";
+          dbError = "CONNEXION INTERROMPUE : Le serveur de base de données a fermé la connexion. Vérifiez si vous devez autoriser l'accès IP (0.0.0.0/0).";
+        } else if (connStr.includes("supabase.co")) {
+          dbError = "SUPABASE HORS LIGNE : Votre projet est peut-être en pause ou l'URL est erronée.";
         } else {
-          dbError = "Impossible de joindre le serveur de base de données. Vérifiez l'URL de l'hôte (Host).";
+          dbError = "HÔTE INACCESSIBLE : Impossible de trouver ou joindre '" + (connStr.split('@')[1]?.split('/')[0] || "serveur") + "'.";
         }
       } else {
         dbError = e.message;

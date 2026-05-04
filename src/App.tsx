@@ -1113,24 +1113,45 @@ const AdminDashboard = () => {
                         <AlertCircle className="w-3 h-3" />
                         Base de données suspendue
                       </div>
+                      
                       {status.dbError && (
-                        <div className="bg-red-900/10 backdrop-blur-sm border border-red-200 p-4 rounded-2xl flex flex-col gap-2 max-w-md animate-in fade-in slide-in-from-top-4 duration-500">
-                          <div className="flex items-center gap-2 text-red-700 font-bold text-xs uppercase tracking-wider">
-                            <AlertCircle className="w-4 h-4" />
-                            Détails de l'interruption
+                        <div className="bg-white border-2 border-red-200 p-6 rounded-[32px] flex flex-col gap-4 max-w-lg shadow-xl animate-in zoom-in-95 duration-300">
+                          <div className="flex items-center gap-3 text-red-600">
+                            <div className="bg-red-100 p-2 rounded-xl">
+                              <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <h3 className="font-black text-lg font-display">Action requise sur votre base de données</h3>
                           </div>
-                          <div className="text-sm text-red-600 font-medium leading-relaxed">
+                          
+                          <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-red-800 text-sm font-medium leading-relaxed">
                             {status.dbError}
                           </div>
-                          <div className="mt-2 text-[10px] text-red-500/70 italic p-3 bg-white/50 rounded-xl border border-red-100 flex flex-col gap-1">
-                            <span>💡 <b>Où trouver les paramètres ?</b></span>
-                            <span>Cliquez sur l'icône ⚙️ <b>Settings</b> dans la barre latérale gauche de Google AI Studio.</span>
-                            {status.dbError.includes("RENDER") && (
-                              <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-blue-700 font-sans normal-case">
-                                <b>Solution Render :</b> Dans votre tableau de bord Render, allez dans <b>Connect</b>, puis choisissez l'onglet <b>External Connection</b>. Copiez le lien qui commence par <code className="bg-blue-100 px-1">postgresql://</code> mais qui n'a pas <code className="bg-blue-100 px-1">-a</code> dans l'URL.
-                              </div>
-                            )}
-                            {status.dbError.includes("[YOUR-PASSWORD]") && " N'oubliez pas d'effacer les crochets [ ]."}
+
+                          <div className="space-y-4">
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Étapes pour réparer :</p>
+                            <div className="grid grid-cols-1 gap-2">
+                              {[
+                                { t: "Allez sur votre tableau de bord Render", c: "dashboard.render.com" },
+                                { t: "Cliquez sur votre base de données", c: "ma_base_permis2" },
+                                { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite" },
+                                { t: "Choisissez l'onglet 'External Connection'", c: "IMPORTANT" },
+                                { t: "Copiez le lien (External Connection String)", c: "Commence par postgresql://" }
+                              ].map((step, i) => (
+                                <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                  <span className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black">{i+1}</span>
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-slate-700">{step.t}</span>
+                                    <span className="text-[10px] text-slate-400 font-medium">{step.c}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="pt-4 mt-2 border-t border-slate-100">
+                            <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                              Une fois copié, cliquez sur <b>⚙️ Settings</b> dans cet éditeur (à gauche), cherchez <b>DATABASE_URL</b> et collez le nouveau lien.
+                            </p>
                           </div>
                         </div>
                       )}
