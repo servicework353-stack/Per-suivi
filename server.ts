@@ -214,8 +214,9 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       } else if (e.message.includes("password authentication failed")) {
         dbError = "Le mot de passe de la base de données est incorrect. Vérifiez vos identifiants.";
       } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("terminated unexpectedly")) {
-        if (connectionString?.includes("dpg-") && !connectionString?.includes(".render.com")) {
-          dbError = "ERREUR RENDER : Vous utilisez l'URL INTERNE. Veuillez copier la 'External Connection String' depuis Render et la coller dans les 'Settings' de AI Studio.";
+        const isRenderInternal = connectionString?.includes("dpg-") && (connectionString?.includes("-a.") || connectionString?.endsWith("-a"));
+        if (isRenderInternal) {
+          dbError = "ERREUR RENDER : Vous avez copié l'URL 'Internal'. Allez sur Render, cherchez 'External Connection String', et copiez-la dans les Settings ici.";
         } else if (e.message.includes("terminated unexpectedly")) {
           dbError = "La connexion a été coupée. Vérifiez que vous utilisez bien l'URL EXTERNE de votre base de données.";
         } else if (connectionString?.includes("supabase.co")) {

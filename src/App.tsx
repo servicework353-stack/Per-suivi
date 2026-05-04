@@ -1124,7 +1124,12 @@ const AdminDashboard = () => {
                           </div>
                           <div className="mt-2 text-[10px] text-red-500/70 italic p-3 bg-white/50 rounded-xl border border-red-100 flex flex-col gap-1">
                             <span>💡 <b>Où trouver les paramètres ?</b></span>
-                            <span>Cliquez sur l'icône ⚙️ <b>Settings</b> dans la barre latérale gauche (ou le menu en haut) de Google AI Studio.</span>
+                            <span>Cliquez sur l'icône ⚙️ <b>Settings</b> dans la barre latérale gauche de Google AI Studio.</span>
+                            {status.dbError.includes("RENDER") && (
+                              <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-blue-700 font-sans normal-case">
+                                <b>Solution Render :</b> Dans votre tableau de bord Render, allez dans <b>Connect</b>, puis choisissez l'onglet <b>External Connection</b>. Copiez le lien qui commence par <code className="bg-blue-100 px-1">postgresql://</code> mais qui n'a pas <code className="bg-blue-100 px-1">-a</code> dans l'URL.
+                              </div>
+                            )}
                             {status.dbError.includes("[YOUR-PASSWORD]") && " N'oubliez pas d'effacer les crochets [ ]."}
                           </div>
                         </div>
