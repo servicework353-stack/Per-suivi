@@ -1131,17 +1131,17 @@ const AdminDashboard = () => {
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Comment connecter votre nouvelle base Render :</p>
                             <div className="grid grid-cols-1 gap-2">
                               {[
-                                { t: "Allez sur Render -> Dashboard", c: "dashboard.render.com" },
-                                { t: "Ouvrez votre nouvelle base de données", c: "Cliquez sur son nom" },
-                                { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite" },
-                                { t: "Copiez le lien de 'External Connection'", c: "L'onglet de DROITE (très important)" },
-                                { t: "Collez le lien dans les Settings ici", c: "DATABASE_URL" }
+                                { t: "Ouvrez votre base de données sur Render", c: "Tableau de bord" },
+                                { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite de la page de la base" },
+                                { t: "IMPORTANT: Cliquez sur l'onglet 'EXTERNAL CONNECTION'", c: "C'est l'onglet à DROITE" },
+                                { t: "Copiez le lien (External Connection String)", c: "Il ne doit JAMAIS finir par -a" },
+                                { t: "Collez le lien dans les Settings ici", c: "Champ DATABASE_URL" }
                               ].map((step, i) => (
-                                <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-blue-100 shadow-sm">
-                                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black shadow-md shadow-blue-200">{i+1}</span>
+                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white border-blue-100'}`}>
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-blue-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
                                   <div className="flex flex-col">
-                                    <span className="text-xs font-bold text-slate-700">{step.t}</span>
-                                    <span className="text-[10px] text-blue-500 font-bold">{step.c}</span>
+                                    <span className={`text-xs font-bold ${i === 2 ? 'text-white' : 'text-slate-700'}`}>{step.t}</span>
+                                    <span className={`text-[10px] font-bold ${i === 2 ? 'text-blue-100' : 'text-blue-500'}`}>{step.c}</span>
                                   </div>
                                 </div>
                               ))}
