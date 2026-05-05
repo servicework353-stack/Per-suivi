@@ -223,11 +223,11 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       if (connStr.includes("[YOUR-PASSWORD]")) {
         dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe dans les Settings.";
       } else if (isRenderHost && (hasDashA || e.message.includes("ENOTFOUND"))) {
-        dbError = "ERREUR DE LIEN RENDER : Vous avez copié le lien 'Internal'. Veuillez retourner sur Render, cliquer sur 'Connect', puis sur l'onglet de droite 'External Connection' pour copier le bon lien.";
+        dbError = "ATTENTION : Vous avez copié le lien 'Internal'. Allez sur Render -> Connect -> onglet de DROITE 'External Connection' et copiez CE LIEN LÀ (celui sans le '-a').";
       } else if (e.message.includes("password authentication failed")) {
-        dbError = "MOT DE PASSE INCORRECT : Le mot de passe dans votre URL Render ne semble pas être le bon.";
+        dbError = "MOT DE PASSE INCORRECT : Le mot de passe dans votre URL Render est invalide.";
       } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("ECONNREFUSED")) {
-        dbError = "SERVEUR INACCESSIBLE : Vérifiez que vous avez bien copié l'intégralité du lien 'External Connection String' (celui qui n'a pas de '-a').";
+        dbError = "SERVEUR INACCESSIBLE : Assurez-vous d'utiliser le lien de l'onglet 'External Connection' sur Render.";
       } else {
         dbError = e.message;
       }

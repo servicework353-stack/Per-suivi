@@ -1133,15 +1133,15 @@ const AdminDashboard = () => {
                               {[
                                 { t: "Ouvrez votre base de données sur Render", c: "Tableau de bord" },
                                 { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite de la page de la base" },
-                                { t: "IMPORTANT: Cliquez sur l'onglet 'EXTERNAL CONNECTION'", c: "C'est l'onglet à DROITE" },
-                                { t: "Copiez le lien (External Connection String)", c: "Il ne doit JAMAIS finir par -a" },
+                                { t: "ONGLET 'EXTERNAL CONNECTION'", c: "L'onglet de DROITE (Indispensable)" },
+                                { t: "Copiez le lien (External Connection String)", c: "Celui sans le '-a'" },
                                 { t: "Collez le lien dans les Settings ici", c: "Champ DATABASE_URL" }
                               ].map((step, i) => (
-                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-blue-600 border-blue-400 text-white' : 'bg-white border-blue-100'}`}>
-                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-blue-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
+                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-red-600 border-red-400 text-white animate-pulse' : 'bg-white border-blue-100'}`}>
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-red-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
                                   <div className="flex flex-col">
                                     <span className={`text-xs font-bold ${i === 2 ? 'text-white' : 'text-slate-700'}`}>{step.t}</span>
-                                    <span className={`text-[10px] font-bold ${i === 2 ? 'text-blue-100' : 'text-blue-500'}`}>{step.c}</span>
+                                    <span className={`text-[10px] font-bold ${i === 2 ? 'text-red-100' : 'text-blue-500'}`}>{step.c}</span>
                                   </div>
                                 </div>
                               ))}
