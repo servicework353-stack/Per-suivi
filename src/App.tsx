@@ -1128,34 +1128,20 @@ const AdminDashboard = () => {
                           </div>
 
                           <div className="space-y-4">
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Étapes pour réparer :</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Comment connecter votre nouvelle base Render :</p>
                             <div className="grid grid-cols-1 gap-2">
-                              {status.dbError?.includes("RENDER") ? [
-                                { t: "Allez sur Render -> Database 'permis3'", c: "dashboard.render.com" },
-                                { t: "Cliquez sur 'Connect' (bouton en haut)", c: "Étape cruciale" },
-                                { t: "Ouvrez l'onglet 'EXTERNAL CONNECTION'", c: "C'est l'onglet de DROITE" },
-                                { t: "Copiez le lien (External Conn String)", c: "Il ne doit PAS y avoir de '-a' dedans" },
-                                { t: "Remplacez l'URL dans les Settings ici", c: "DATABASE_URL" }
+                              {[
+                                { t: "Allez sur Render -> Dashboard", c: "dashboard.render.com" },
+                                { t: "Ouvrez votre nouvelle base de données", c: "Cliquez sur son nom" },
+                                { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite" },
+                                { t: "Copiez le lien de 'External Connection'", c: "L'onglet de DROITE (très important)" },
+                                { t: "Collez le lien dans les Settings ici", c: "DATABASE_URL" }
                               ].map((step, i) => (
                                 <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-blue-100 shadow-sm">
                                   <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black shadow-md shadow-blue-200">{i+1}</span>
                                   <div className="flex flex-col">
                                     <span className="text-xs font-bold text-slate-700">{step.t}</span>
                                     <span className="text-[10px] text-blue-500 font-bold">{step.c}</span>
-                                  </div>
-                                </div>
-                              )) : [
-                                { t: "Allez sur votre tableau de bord Supabase", c: "supabase.com" },
-                                { t: "Allez dans Settings -> Database", c: "Barre latérale" },
-                                { t: "Cherchez 'Connection string'", c: "Section Connection Info" },
-                                { t: "Choisissez l'onglet 'URI'", c: "Format postgresql://" },
-                                { t: "Copiez le lien et remplacez [YOUR-PASSWORD]", c: "Utilisez votre mot de passe réel" }
-                              ].map((step, i) => (
-                                <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                  <span className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black">{i+1}</span>
-                                  <div className="flex flex-col">
-                                    <span className="text-xs font-bold text-slate-700">{step.t}</span>
-                                    <span className="text-[10px] text-slate-400 font-medium">{step.c}</span>
                                   </div>
                                 </div>
                               ))}

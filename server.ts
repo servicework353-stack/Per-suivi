@@ -218,26 +218,16 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       const connStr = (connectionString || "").trim();
       const isRenderHost = connStr.includes("render.com") || connStr.includes("dpg-");
       const hasDashA = connStr.includes("-a.") || connStr.includes("-a:") || connStr.endsWith("-a");
-      const hasDoubleAt = connStr.includes("@@");
       
-      // Add a helpful hint for common mistakes
-      if (connStr.includes("[YOUR-PASSWORD]") || connStr.includes("[PASSWORD]")) {
-        dbError = "MOT DE PASSE MANQUANT : Vous avez laissé '[YOUR-PASSWORD]'. Remplacez-le par votre vrai mot de passe dans les Settings.";
-      } else if (hasDoubleAt) {
-        dbError = "ERREUR DE SYNTAXE : Votre URL contient '@@'. Si votre mot de passe contient @, remplacez-le par %40 dans l'URL (ex: mdp@ devient mdp%40).";
+      // Nettoyage des erreurs pour Render
+      if (connStr.includes("[YOUR-PASSWORD]")) {
+        dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe dans les Settings.";
+      } else if (isRenderHost && hasDashA) {
+        dbError = "ERREUR DE LIEN RENDER : Vous utilisez l'URL 'Internal'. Veuillez utiliser l'URL 'External' de Render.";
       } else if (e.message.includes("password authentication failed")) {
-        dbError = "MOT DE PASSE INCORRECT : Le mot de passe pour Supabase est invalide. Vérifiez vos identifiants.";
-      } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("terminated unexpectedly") || e.message.includes("ECONNREFUSED")) {
-        
-        if (isRenderHost && hasDashA) {
-          dbError = "ERREUR RENDER (URL INTERNE) : Le lien finit par '-a', ce qui signifie 'Interne'. Allez sur Render -> Connect -> EXTERNAL Connection et copiez ce lien là.";
-        } else if (e.message.includes("terminated unexpectedly")) {
-          dbError = "CONNEXION INTERROMPUE : Le serveur a fermé la connexion. Sur Supabase, vérifiez que votre projet n'est pas suspendu.";
-        } else if (connStr.includes("supabase.co")) {
-          dbError = "SUPABASE INACCESSIBLE : Le host '" + (connStr.split('@')[1]?.split(':')[0] || "Supabase") + "' ne répond pas. Vérifiez que l'URL est correcte ou que le projet n'est pas en pause.";
-        } else {
-          dbError = "HÔTE INACCESSIBLE : Impossible de trouver ou joindre '" + (connStr.split('@')[1]?.split('/')[0] || "serveur") + "'.";
-        }
+        dbError = "MOT DE PASSE INCORRECT : Le mot de passe dans votre URL Render ne semble pas être le bon.";
+      } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("ECONNREFUSED")) {
+        dbError = "SERVEUR INACCESSIBLE : Vérifiez que vous avez bien copié l'intégralité du lien 'External Connection String'.";
       } else {
         dbError = e.message;
       }
