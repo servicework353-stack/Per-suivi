@@ -282,13 +282,14 @@ app.get("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Admin: Create application
+    // Admin: Create application
 app.post("/api/admin/applications", authenticateToken, async (req, res) => {
   const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment } = req.body;
   const last_updated = new Date().toISOString();
 
   try {
     if (isPostgres) {
+      if (!db) throw new Error("La base de données n'est pas initialisée.");
       const result = await db.query(
         "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
         [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment]
@@ -300,10 +301,14 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
       res.status(201).json({ id: result.lastInsertRowid });
     }
   } catch (error: any) {
+    console.error("CRITICAL ERROR DURING CREATION:", error);
     if (error.message.includes("unique") || error.code === "23505") {
       return res.status(400).json({ error: "Ce code de suivi existe déjà" });
     }
-    res.status(500).json({ error: "Erreur lors de la création" });
+    if (error.message.includes("relation \"applications\" does not exist")) {
+      return res.status(500).json({ error: "La table 'applications' est manquante. Redémarrez l'app ou vérifiez votre base Render." });
+    }
+    res.status(500).json({ error: `Erreur lors de la création : ${error.message}` });
   }
 });
 
