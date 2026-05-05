@@ -1162,10 +1162,16 @@ const AdminDashboard = () => {
                             </div>
                           </div>
 
-                          <div className="pt-4 mt-2 border-t border-slate-100">
+                          <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-2">
                             <p className="text-[11px] text-slate-500 leading-relaxed italic">
                               Une fois copié, cliquez sur <b>⚙️ Settings</b> dans cet éditeur (à gauche), cherchez <b>DATABASE_URL</b> et collez le nouveau lien.
                             </p>
+                            {status.dbError.includes("@@") && (
+                              <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-700 text-[10px] font-medium animate-pulse">
+                                <b>💡 Astuce Password :</b> Si votre mot de passe contient un @, vous devez le remplacer par %40 dans l'URL. 
+                                <br />Exemple: <code className="bg-indigo-100 px-1">...mdp@...</code> devient <code className="bg-indigo-100 px-1">...mdp%40...</code>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
