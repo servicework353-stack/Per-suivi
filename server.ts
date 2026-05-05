@@ -36,10 +36,10 @@ if (connectionString && !connectionString.startsWith("https://")) {
 
   try {
     const trimmedConn = connectionString.trim();
-    const isInternal = trimmedConn.includes("dpg-") && (trimmedConn.includes("-a.") || trimmedConn.endsWith("-a"));
+    const isInternal = trimmedConn.includes("dpg-") && (trimmedConn.includes("-a.") || trimmedConn.includes("-a:") || trimmedConn.endsWith("-a"));
     
     if (isInternal) {
-      console.error("!!! ERREUR CRITIQUE : Vous utilisez une URL 'Internal' de Render.");
+      console.error("!!! ERREUR RENDER : Vous tentez d'utiliser une URL interne (-a).");
       dbMode = 'sqlite';
     } else {
       db = new Pool({
@@ -230,7 +230,7 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("terminated unexpectedly") || e.message.includes("ECONNREFUSED")) {
         
         if (isRenderHost && hasDashA) {
-          dbError = "ERREUR RENDER (URL INTERNE) : Vous utilisez l'URL 'Internal' (qui finit par -a). Sur Render, copiez la 'External Connection String' à la place.";
+          dbError = "ERREUR RENDER (URL INTERNE) : Le lien finit par '-a', ce qui signifie 'Interne'. Allez sur Render -> Connect -> EXTERNAL Connection et copiez ce lien là.";
         } else if (e.message.includes("terminated unexpectedly")) {
           dbError = "CONNEXION INTERROMPUE : Le serveur a fermé la connexion. Sur Supabase, vérifiez que votre projet n'est pas suspendu.";
         } else if (connStr.includes("supabase.co")) {
