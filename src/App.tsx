@@ -1150,22 +1150,25 @@ const AdminDashboard = () => {
                                 </div>
 
                                 <div className="space-y-2 pt-2 border-t border-orange-100">
-                                  <p className="text-[10px] font-bold text-slate-700 uppercase">Structure du lien (Le mot de passe est dedans) :</p>
+                                  <p className="text-[10px] font-bold text-slate-700 uppercase">Comment copier le lien (Le mot de passe est déjà dedans !) :</p>
                                   <div className="relative group">
                                     <div className="p-3 bg-white rounded-xl border border-orange-200 font-mono text-[9px] leading-relaxed shadow-inner">
                                       <span className="text-slate-400">postgresql://</span>
                                       <span className="text-blue-600 font-bold">permis3_user</span>
                                       <span className="text-slate-400">:</span>
-                                      <span className="text-pink-600 font-bold" title="C'est votre mot de passe, il est déjà inclus !">MOT_DE_PASSE_AUTO</span>
+                                      <span className="text-pink-600 font-bold bg-pink-50 px-1 rounded" title="C'est votre mot de passe, il est déjà inclus !">MOT_DE_PASSE_INCLUS</span>
                                       <span className="text-slate-400">@</span>
                                       <span className="text-green-600 font-bold">dpg-xxxxxx</span>
-                                      <span className="text-red-600 font-black decoration-double underline animate-pulse"> (PAS DE -A ICI) </span>
-                                      <span className="text-slate-400">.frankfurt...</span>
+                                      <span className="text-slate-400">.frankfurt-postgres.render.com/permis3</span>
                                     </div>
-                                    <div className="absolute -top-2 -right-2 bg-pink-500 text-white text-[8px] px-2 py-0.5 rounded-full font-bold shadow-sm">
-                                      Le mot de passe est ici ↑
+                                    <div className="absolute -top-2 -right-1 bg-pink-600 text-white text-[7px] px-2 py-0.5 rounded-full font-black shadow-lg animate-bounce">
+                                      PAS DE MOT DE PASSE À AJOUTER !
                                     </div>
                                   </div>
+                                </div>
+                                <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 italic text-[9px] text-blue-700 flex items-center gap-2">
+                                  <Check className="w-3 h-3 shrink-0" />
+                                  <span>Le lien complet est dans l'onglet <b>"External Connection"</b> sur Render.</span>
                                 </div>
                               </div>
                             </div>

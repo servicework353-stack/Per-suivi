@@ -37,17 +37,20 @@ if (connectionString && !connectionString.startsWith("https://")) {
   try {
     let trimmedConn = (connectionString || "").trim();
     
-    // Auto-fix Render Internal URL (-a) to External
-    const isRenderHost = trimmedConn.includes("render.com") || trimmedConn.includes("dpg-");
-    const hasDashA = trimmedConn.includes("-a.") || trimmedConn.includes("-a:") || trimmedConn.includes("-a-");
-    
-    if (isRenderHost && hasDashA) {
-      const originalHost = trimmedConn.split('@')[1]?.split('/')[0];
-      console.warn(`!!! AUTO-FIX: Internal Render URL detected: ${originalHost}`);
-      // Replace -a followed by . or : or - or at end of hostname
-      trimmedConn = trimmedConn.replace(/-a(?=\.|\:|-)/g, "");
-      const newHost = trimmedConn.split('@')[1]?.split('/')[0];
-      console.warn(`!!! AUTO-FIX: Using External Render URL: ${newHost}`);
+    // Auto-fix Render Internal URL to External
+    if (trimmedConn.includes("render.com") || trimmedConn.includes("dpg-")) {
+      // 1. Remove the '-a' which indicates internal routing
+      if (trimmedConn.includes("-a.") || trimmedConn.includes("-a:") || trimmedConn.includes("-a-") || trimmedConn.includes("-a/")) {
+        console.warn("!!! AUTO-FIX: Internal Render URL detected (-a). Fixing...");
+        trimmedConn = trimmedConn.replace(/-a(?=\.|\:|-|\/)/g, "");
+      }
+      
+      // 2. If the user copied the simple host (dpg-xxxxxx), try to fix the domain
+      // External hosts usually follow the pattern dpg-xxx.region-postgres.render.com
+      if (trimmedConn.includes("@dpg-") && !trimmedConn.includes(".render.com")) {
+        console.warn("!!! AUTO-FIX: Missing domain in Render URL. Appending .frankfurt-postgres.render.com...");
+        trimmedConn = trimmedConn.replace(/(@dpg-[^/:]+)/, "$1.frankfurt-postgres.render.com");
+      }
     }
 
     db = new Pool({
