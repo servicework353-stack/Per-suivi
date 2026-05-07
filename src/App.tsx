@@ -1135,7 +1135,7 @@ const AdminDashboard = () => {
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Diagnostic technique :</p>
                             <p className="text-[10px] font-mono text-slate-600 break-all">
                               Lien détecté: <span className="font-bold text-red-700">
-                                {status.isPostgres ? "postgresql://permis3_user:****@..." : "AUCUN (Mode Temporaire SQLite)"}
+                                {status.isPostgres ? `postgresql://permis3_user:****@${status.resolvedHost || "..."}` : "AUCUN (Mode Temporaire SQLite)"}
                               </span>
                             </p>
                           </div>

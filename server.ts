@@ -299,12 +299,15 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
     dbConnected = true; 
   }
 
+  const resolvedHost = isPostgres ? (connectionString || "").replace(/-a(?=\.|\:|\/|$)/g, "").split('@')[1]?.split('/')[0] : null;
+
   res.json({
     database: isPostgres ? "Point d'accès PostgreSQL" : "Stockage SQLite (Local)",
     mode: process.env.NODE_ENV || "development",
     isPostgres,
     dbConnected,
-    dbError: dbConnected ? null : dbError
+    dbError: dbConnected ? null : dbError,
+    resolvedHost
   });
 });
 
