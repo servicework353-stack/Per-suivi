@@ -1141,29 +1141,47 @@ const AdminDashboard = () => {
                           </div>
 
                           <div className="space-y-4">
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Comment connecter votre nouvelle base Render :</p>
-                            
+                            <div className="p-5 bg-red-600 rounded-[32px] text-white shadow-xl animate-pulse ring-8 ring-red-100">
+                              <div className="flex items-center gap-4 mb-3">
+                                <AlertTriangle className="w-8 h-8 shrink-0" />
+                                <h4 className="font-black text-xl uppercase tracking-tighter italic">ERREUR CRITIQUE DANS VOTRE LIEN</h4>
+                              </div>
+                              <p className="text-sm font-bold leading-tight">
+                                Vous utilisez probablement le lien <span className="underline decoration-yellow-400 decoration-2">INTERNAL</span>. 
+                                <br/><br/>
+                                Sur Render, vous DEVEZ cliquer sur l'onglet de <span className="bg-white text-red-600 px-2 py-0.5 rounded mx-1">DROITE</span> appelé :
+                                <br/>
+                                <span className="text-lg font-black block mt-2 py-2 bg-red-700 text-center rounded-xl border border-red-500">👉 EXTERNAL CONNECTION 👈</span>
+                              </p>
+                            </div>
+
                             <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl space-y-4">
                               <div className="flex items-center gap-3 text-orange-700">
                                 <AlertTriangle className="w-5 h-5 shrink-0 animate-pulse" />
-                                <p className="text-xs font-black uppercase tracking-tight">Où trouver le bon lien sur Render :</p>
+                                <p className="text-xs font-black uppercase tracking-tight">Vérification Visuelle :</p>
                               </div>
                               
                               <div className="space-y-4">
                                 <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-slate-600 flex items-center gap-1 uppercase">
-                                    1. Cliquez sur le bouton "Connect" (en haut à droite sur Render)
+                                  <p className="text-[10px] font-bold text-red-700 flex items-center gap-1 uppercase">
+                                    ❌ MAUVAIS (Internal) :
                                   </p>
-                                  <p className="text-[10px] font-bold text-red-600 flex items-center gap-1">
-                                    2. Cliquez sur l'onglet <span className="bg-red-100 px-1 rounded">External Connection</span>
-                                  </p>
+                                  <div className="p-2 bg-red-100/50 text-[9px] text-red-900 break-all rounded-lg border border-red-200 font-mono italic">
+                                    ...dpg-xxxxxx<b className="text-red-600 underline">-a</b>/permis...
+                                  </div>
                                 </div>
 
-                                <div className="space-y-4 pt-2 border-t border-orange-100">
-                                  <div className="flex flex-col gap-1">
-                                    <p className="text-[10px] font-bold text-slate-700 uppercase">Le lien CORRECT (déjà avec mot de passe) :</p>
-                                    <p className="text-[9px] text-slate-500 italic">Copiez-le sur Render → Connect → External Connection</p>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-green-700 flex items-center gap-1 uppercase">
+                                    ✅ BON (External) :
+                                  </p>
+                                  <div className="p-2 bg-green-100/50 text-[9px] text-green-900 break-all rounded-lg border border-green-300 font-bold font-mono">
+                                    ...dpg-xxxxxx<b className="text-green-600">.frankfurt-postgres.render.com</b>/permis...
                                   </div>
+                                </div>
+
+                                <div className="space-y-2 pt-2 border-t border-orange-100">
+                                  <p className="text-[10px] font-bold text-slate-700 uppercase">Le lien CORRECT (déjà avec mot de passe) :</p>
                                   <div className="relative group">
                                     <div className="p-3 bg-white rounded-xl border border-orange-200 font-mono text-[9px] leading-relaxed shadow-inner">
                                       <span className="text-slate-400">postgresql://</span>
@@ -1172,7 +1190,7 @@ const AdminDashboard = () => {
                                       <span className="text-pink-600 font-bold bg-pink-50 px-1 rounded">MOT_DE_PASSE_INCLUS</span>
                                       <span className="text-slate-400">@</span>
                                       <span className="text-green-600 font-bold">dpg-xxxxxx</span>
-                                      <span className="text-slate-400">.frankfurt-postgres.render.com/permis3</span>
+                                      <span className="text-slate-400">.oregon-postgres.render.com/permis3</span>
                                     </div>
                                     <div className="absolute -top-2 -right-1 bg-pink-600 text-white text-[7px] px-2 py-0.5 rounded-full font-black shadow-lg animate-bounce">
                                       LE MOT DE PASSE EST DÉJÀ DEDANS !
@@ -1186,7 +1204,7 @@ const AdminDashboard = () => {
                                   </div>
                                   <div className="flex items-center gap-2 text-red-600 font-black p-1.5 bg-red-100 rounded text-[9px]">
                                     <X className="w-3 h-3 shrink-0" />
-                                    <span>NE TAPEZ RIEN À LA MAIN ! Utilisez le bouton de copie sur Render.</span>
+                                    <span>SUR MOBILE : Ne copiez pas à la main, utilisez le bouton de copie !</span>
                                   </div>
                                 </div>
                               </div>

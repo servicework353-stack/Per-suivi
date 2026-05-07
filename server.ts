@@ -26,6 +26,25 @@ let db: any;
 const connectionString = process.env.DATABASE_URL;
 let dbMode: 'postgres' | 'sqlite' = 'sqlite';
 
+// Database query helper with retry logic
+const query = async (text: string, params?: any[]) => {
+  if (dbMode !== 'postgres') return null;
+  let retries = 2;
+  while (retries >= 0) {
+    try {
+      return await db.query(text, params);
+    } catch (err: any) {
+      if (retries > 0 && (err.message.includes("terminated unexpectedly") || err.message.includes("is closed") || err.message.includes("ECONNRESET"))) {
+        console.warn(`Postgres transient error, retrying... (${retries} retries left): ${err.message}`);
+        retries--;
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+      throw err;
+    }
+  }
+};
+
 if (connectionString && !connectionString.startsWith("https://")) {
   console.log("--- PRODUCTION MODE: Trying PostgreSQL ---");
   
@@ -57,23 +76,29 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db = new Pool({
       connectionString: trimmedConn,
       ssl: { rejectUnauthorized: false },
-      max: 10, // Réduit pour plus de stabilité sur Render Free
-      idleTimeoutMillis: 10000,
-      connectionTimeoutMillis: 15000, 
+      max: 5, // Réduit encore pour éviter de saturer la base Render Free
+      idleTimeoutMillis: 5000, // Déconnexion plus rapide des clients inactifs
+      connectionTimeoutMillis: 20000, 
+      query_timeout: 30000,
     });
 
-    db.on('error', (err) => {
-      console.error('Unexpected error on idle client', err);
+    db.on('error', (err: any) => {
+      console.error('Unexpected error on idle PostgreSQL client:', err);
+      // If the error is serious, we might want to flag it for the status check
     });
 
-    // Keep-alive: Ping the database every 60 seconds to keep connections warm
-    setInterval(async () => {
+    // Keep-alive: Ping the database every 45 seconds
+    const intervalId = setInterval(async () => {
       try {
-        await db.query('SELECT 1');
-      } catch (e) {
-        console.error('Postgres keep-alive ping failed:', e);
+        await query('SELECT 1');
+      } catch (e: any) {
+        if (e.message.includes("Connection terminated unexpectedly") || e.message.includes("is closed")) {
+          console.warn('Postgres connection lost. Pool will attempt to recover on next query.');
+        } else {
+          console.error('Postgres keep-alive ping error:', e.message);
+        }
       }
-    }, 60000);
+    }, 45000);
 
     dbMode = 'postgres';
     
@@ -86,10 +111,10 @@ if (connectionString && !connectionString.startsWith("https://")) {
       if (dbMode !== 'postgres') return;
       try {
         console.log("Checking PostgreSQL connection...");
-        await db.query("SELECT 1");
+        await query("SELECT 1");
         console.log("PostgreSQL connection verified.");
         
-        await db.query(`
+        await query(`
           CREATE TABLE IF NOT EXISTS applications (
             id SERIAL PRIMARY KEY,
             tracking_code TEXT UNIQUE NOT NULL,
@@ -112,7 +137,7 @@ if (connectionString && !connectionString.startsWith("https://")) {
         const columnsToEnsure = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
         for (const col of columnsToEnsure) {
           try {
-            await db.query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col} TEXT;`);
+            await query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col} TEXT;`);
           } catch (e) {
             // Silently ignore if IF NOT EXISTS isn't supported or fails for other reasons
           }
@@ -162,6 +187,8 @@ if (dbMode === 'sqlite') {
   }
 }
 
+// ... existing code ...
+
 const isPostgres = dbMode === 'postgres';
 
 const app = express();
@@ -192,8 +219,8 @@ app.get("/api/track/:code", async (req, res) => {
     let application;
     if (isPostgres) {
       try {
-        const result = await db.query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
-        application = result.rows[0];
+        const result = await query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
+        application = result?.rows[0];
       } catch (dbErr) {
         console.error("Postgres Tracking Query Error:", dbErr);
         throw dbErr;
@@ -243,7 +270,7 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
   if (isPostgres) {
     try {
       if (!db) throw new Error("Pool de connexion non initialisé");
-      await db.query("SELECT 1");
+      await query("SELECT 1");
       dbConnected = true;
     } catch (e: any) {
       dbConnected = false;
@@ -285,12 +312,12 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
 app.get("/api/admin/applications", authenticateToken, async (req, res) => {
   try {
     let applications;
-    const query = "SELECT id, tracking_code, first_name, last_name, status, last_updated, comment, phone, address, license_category FROM applications ORDER BY last_updated DESC";
+    const queryStr = "SELECT id, tracking_code, first_name, last_name, status, last_updated, comment, phone, address, license_category FROM applications ORDER BY last_updated DESC";
     if (isPostgres) {
-      const result = await db.query(query);
-      applications = result.rows;
+      const result = await query(queryStr);
+      applications = result?.rows;
     } else {
-      applications = db.prepare(query).all();
+      applications = db.prepare(queryStr).all();
     }
     res.json(applications);
   } catch (err) {
@@ -304,8 +331,8 @@ app.get("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   try {
     let application;
     if (isPostgres) {
-      const result = await db.query("SELECT * FROM applications WHERE id = $1", [id]);
-      application = result.rows[0];
+      const result = await query("SELECT * FROM applications WHERE id = $1", [id]);
+      application = result?.rows[0];
     } else {
       application = db.prepare("SELECT * FROM applications WHERE id = ?").get(id);
     }
@@ -324,11 +351,11 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
   try {
     if (isPostgres) {
       if (!db) throw new Error("La base de données n'est pas initialisée.");
-      const result = await db.query(
+      const result = await query(
         "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
         [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment]
       );
-      res.status(201).json({ id: result.rows[0].id });
+      res.status(201).json({ id: result?.rows[0].id });
     } else {
       const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
       const result = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment);
@@ -360,7 +387,7 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
     if (error.message.includes("relation \"applications\" does not exist")) {
       try {
         if (db && isPostgres) {
-          await db.query("CREATE TABLE IF NOT EXISTS applications (id SERIAL PRIMARY KEY, tracking_code TEXT UNIQUE NOT NULL, first_name TEXT, last_name TEXT, status TEXT NOT NULL, last_updated TEXT NOT NULL, comment TEXT, address TEXT, phone TEXT, license_category TEXT, photo_url TEXT, id_card_url TEXT)");
+          await query("CREATE TABLE IF NOT EXISTS applications (id SERIAL PRIMARY KEY, tracking_code TEXT UNIQUE NOT NULL, first_name TEXT, last_name TEXT, status TEXT NOT NULL, last_updated TEXT NOT NULL, comment TEXT, address TEXT, phone TEXT, license_category TEXT, photo_url TEXT, id_card_url TEXT)");
           return res.status(500).json({ error: "Table créée. Veuillez cliquer à nouveau sur 'Enregistrer'." });
         }
       } catch (e) {}
@@ -379,11 +406,11 @@ app.put("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   try {
     let result;
     if (isPostgres) {
-      result = await db.query(
+      result = await query(
         "UPDATE applications SET tracking_code = $1, first_name = $2, last_name = $3, address = $4, phone = $5, license_category = $6, photo_url = $7, id_card_url = $8, status = $9, last_updated = $10, comment = $11 WHERE id = $12",
         [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, id]
       );
-      if (result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
+      if (!result || result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     } else {
       const stmt = db.prepare("UPDATE applications SET tracking_code = ?, first_name = ?, last_name = ?, address = ?, phone = ?, license_category = ?, photo_url = ?, id_card_url = ?, status = ?, last_updated = ?, comment = ? WHERE id = ?");
       const resStmt = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, id);
@@ -401,8 +428,8 @@ app.delete("/api/admin/applications/:id", authenticateToken, async (req, res) =>
   try {
     let result;
     if (isPostgres) {
-      result = await db.query("DELETE FROM applications WHERE id = $1", [id]);
-      if (result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
+      result = await query("DELETE FROM applications WHERE id = $1", [id]);
+      if (!result || result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     } else {
       const stmt = db.prepare("DELETE FROM applications WHERE id = ?");
       const resStmt = stmt.run(id);
