@@ -35,22 +35,26 @@ if (connectionString && !connectionString.startsWith("https://")) {
   }
 
   try {
-    const trimmedConn = connectionString.trim();
-    const isInternal = trimmedConn.includes("dpg-") && (trimmedConn.includes("-a.") || trimmedConn.includes("-a:") || trimmedConn.endsWith("-a"));
+    let trimmedConn = (connectionString || "").trim();
     
-    if (isInternal) {
-      console.error("!!! ERREUR RENDER : Vous tentez d'utiliser une URL interne (-a).");
-      dbMode = 'sqlite';
-    } else {
-      db = new Pool({
-        connectionString: trimmedConn,
-        ssl: { rejectUnauthorized: false },
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000, 
-      });
-      dbMode = 'postgres';
+    // Auto-fix Render Internal URL (-a) to External
+    const isRenderHost = trimmedConn.includes("render.com") || trimmedConn.includes("dpg-");
+    const hasDashA = trimmedConn.includes("-a.") || trimmedConn.includes("-a:") || trimmedConn.includes("-a-");
+    
+    if (isRenderHost && hasDashA) {
+      console.warn("!!! AUTO-FIX: Internal Render URL detected (-a). Attempting to use External URL...");
+      // Replace -a followed by . or : or - or at end of hostname
+      trimmedConn = trimmedConn.replace(/-a(?=\.|\:|-)/g, "");
     }
+
+    db = new Pool({
+      connectionString: trimmedConn,
+      ssl: { rejectUnauthorized: false },
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000, 
+    });
+    dbMode = 'postgres';
     
     // Initialize Postgres Table & Migrations
     const initDb = async () => {
