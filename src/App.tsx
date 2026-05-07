@@ -40,7 +40,10 @@ import {
   Smartphone,
   MessagesSquare,
   Zap,
-  Star
+  Star,
+  AlertTriangle,
+  X,
+  Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -1129,19 +1132,56 @@ const AdminDashboard = () => {
 
                           <div className="space-y-4">
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Comment connecter votre nouvelle base Render :</p>
+                            
+                            <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl space-y-4">
+                              <div className="flex items-center gap-3 text-orange-700">
+                                <AlertTriangle className="w-5 h-5 shrink-0 animate-pulse" />
+                                <p className="text-xs font-black uppercase tracking-tight">Vérifiez votre lien attentivement :</p>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-red-600 flex items-center gap-1">
+                                    <X className="w-3 h-3" /> MAUVAIS (Internal) : contient <span className="bg-red-200 px-1 rounded">-a</span>
+                                  </p>
+                                  <div className="p-2 bg-white text-[9px] text-slate-400 break-all rounded-lg border border-red-100 font-mono">
+                                    ...dpg-xxxxxx<b className="text-red-600 font-black underline">-a</b>.frankfurt...
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-green-600 flex items-center gap-1">
+                                    <Check className="w-3 h-3" /> BON (External) : SANS le <span className="bg-green-100 px-1 rounded">-a</span>
+                                  </p>
+                                  <div className="p-2 bg-white text-[9px] text-green-700 break-all rounded-lg border border-green-300 font-bold font-mono shadow-sm">
+                                    ...<b>dpg-xxxxxx</b>.frankfurt...
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-orange-100">
+                                <p className="text-[10px] text-orange-800 font-medium">
+                                  Lien détecté dans vos réglages : 
+                                  <span className="block mt-1 font-mono text-[9px] bg-white p-1 rounded border border-orange-200 text-orange-900 truncate">
+                                    {status.isPostgres ? "postgresql://permis3_user:****@dpg-..." : "Pas de lien détecté"}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+
                             <div className="grid grid-cols-1 gap-2">
                               {[
-                                { t: "Ouvrez votre base de données sur Render", c: "Tableau de bord" },
-                                { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite" },
-                                { t: "IMPORTANT : Cliquez sur 'EXTERNAL CONNECTION'", c: "C'est l'onglet de DROITE" },
-                                { t: "Copiez le lien 'External Connection String'", c: "Il ne doit JAMAIS y avoir de '-a' dedans" },
+                                { t: "Ouvrez votre base sur Render", c: "Tableau de bord" },
+                                { t: "Cliquez sur 'Connect'", c: "Bouton en haut à droite" },
+                                { t: "IMPORTANT : Cliquez sur 'EXTERNAL CONNECTION'", c: "L'onglet de DROITE" },
+                                { t: "Copiez le lien (External Conn String)", c: "Pas de '-a' dedans !" },
                                 { t: "Collez le lien dans Settings -> DATABASE_URL", c: "Ici, sur le côté gauche" }
                               ].map((step, i) => (
-                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-orange-600 border-orange-400 text-white animate-bounce scale-[1.05] ring-4 ring-orange-100' : 'bg-white border-blue-100'}`}>
-                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-orange-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
+                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-blue-600 border-blue-400 text-white scale-[1.05] ring-4 ring-blue-100 animate-pulse' : 'bg-white border-blue-100'}`}>
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-blue-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
                                   <div className="flex flex-col">
                                     <span className={`text-xs font-bold ${i === 2 ? 'text-white' : 'text-slate-700'}`}>{step.t}</span>
-                                    <span className={`text-[10px] font-bold ${i === 2 ? 'text-orange-100' : 'text-blue-500'}`}>{step.c}</span>
+                                    <span className={`text-[10px] font-bold ${i === 2 ? 'text-blue-100' : 'text-blue-500'}`}>{step.c}</span>
                                   </div>
                                 </div>
                               ))}

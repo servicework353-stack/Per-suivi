@@ -56,8 +56,9 @@ if (connectionString && !connectionString.startsWith("https://")) {
     const initDb = async () => {
       if (dbMode !== 'postgres') return;
       try {
+        console.log("Checking PostgreSQL connection...");
         await db.query("SELECT 1");
-        console.log("PostgreSQL connection successful");
+        console.log("PostgreSQL connection verified.");
         
         await db.query(`
           CREATE TABLE IF NOT EXISTS applications (
@@ -67,26 +68,30 @@ if (connectionString && !connectionString.startsWith("https://")) {
             last_name TEXT,
             status TEXT NOT NULL,
             last_updated TEXT NOT NULL,
-            comment TEXT
+            comment TEXT,
+            address TEXT,
+            phone TEXT,
+            license_category TEXT,
+            photo_url TEXT,
+            id_card_url TEXT
           );
-          CREATE INDEX IF NOT EXISTS idx_tracking_code ON applications(tracking_code);
         `);
+        
+        console.log("PostgreSQL Table 'applications' verified/created.");
 
-        // Add new columns if they don't exist
-        const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
-        for (const col of columns) {
-          await db.query(`
-            DO $$ 
-            BEGIN 
-              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='applications' AND column_name='${col}') THEN 
-                ALTER TABLE applications ADD COLUMN ${col} TEXT; 
-              END IF; 
-            END $$;
-          `);
+        // Double check columns in case of partial creation
+        const columnsToEnsure = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
+        for (const col of columnsToEnsure) {
+          try {
+            await db.query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col} TEXT;`);
+          } catch (e) {
+            // Silently ignore if IF NOT EXISTS isn't supported or fails for other reasons
+          }
         }
+        
         console.log("PostgreSQL Database & Migrations Ready");
       } catch (err) {
-        console.error("PostgreSQL ping or migration failed:", err);
+        console.error("PostgreSQL initialization error (will retry on next request):", err);
       }
     };
     initDb();
@@ -217,13 +222,13 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       
       const connStr = (connectionString || "").trim();
       const isRenderHost = connStr.includes("render.com") || connStr.includes("dpg-");
-      const hasDashA = connStr.includes("-a.") || connStr.includes("-a:") || connStr.endsWith("-a");
+      const hasDashA = connStr.includes("-a.") || connStr.includes("-a:") || connStr.includes("-a-") || connStr.endsWith("-a");
       
       // Nettoyage des erreurs pour Render
       if (connStr.includes("[YOUR-PASSWORD]")) {
         dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe dans les Settings.";
       } else if (isRenderHost && (hasDashA || e.message.includes("ENOTFOUND"))) {
-        dbError = "ERREUR DE LIEN RENDER : Vous avez copié le lien 'Internal'. Allez sur Render -> Connect -> onglet 'External Connection' (à DROITE) et copiez CE LIEN LÀ (celui sans le '-a').";
+        dbError = "ERREUR RENDER : Votre lien contient '-a'. C'est le lien 'Internal'. Allez sur Render -> Connect -> onglet de DROITE 'External Connection' et copiez LE LIEN SANS '-a'.";
       } else if (e.message.includes("password authentication failed")) {
         dbError = "MOT DE PASSE INCORRECT : Le mot de passe dans votre URL Render est invalide.";
       } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("ECONNREFUSED")) {
@@ -305,13 +310,27 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
     if (error.message.includes("unique") || error.code === "23505") {
       return res.status(400).json({ error: "Ce code de suivi existe déjà" });
     }
-    if ((error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT")) && error.message.includes("dpg-") && error.message.includes("-a")) {
-      return res.status(500).json({ error: "ERREUR RENDER : Vous utilisez l'URL 'Internal'. Allez sur Render -> Connect -> onglet de DROITE 'External Connection' et copiez CE LIEN LÀ (celui sans le '-a')." });
+    
+    const connStr = (connectionString || "").trim();
+    const isInternal = connStr.includes("-a.") || connStr.includes("-a:") || connStr.includes("-a-");
+    const isEnotFound = error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT");
+    
+    if (isPostgres && (isInternal || (isEnotFound && connStr.includes("render.com")))) {
+      return res.status(500).json({ 
+        error: "ERREUR RENDER : Votre lien contient '-a' ou est inaccessible. Utilisez UNIQUEMENT le lien de l'onglet 'EXTERNAL CONNECTION' (celui qui n'a pas de '-a')." 
+      });
     }
+
     if (error.message.includes("relation \"applications\" does not exist")) {
-      return res.status(500).json({ error: "La table 'applications' est manquante. Redémarrez l'app ou vérifiez votre base Render." });
+      try {
+        if (db && isPostgres) {
+          await db.query("CREATE TABLE IF NOT EXISTS applications (id SERIAL PRIMARY KEY, tracking_code TEXT UNIQUE NOT NULL, first_name TEXT, last_name TEXT, status TEXT NOT NULL, last_updated TEXT NOT NULL, comment TEXT, address TEXT, phone TEXT, license_category TEXT, photo_url TEXT, id_card_url TEXT)");
+          return res.status(500).json({ error: "Table créée. Veuillez cliquer à nouveau sur 'Enregistrer'." });
+        }
+      } catch (e) {}
+      return res.status(500).json({ error: "Table manquante sur votre base Render." });
     }
-    res.status(500).json({ error: `Erreur lors de la création : ${error.message}` });
+    res.status(500).json({ error: `Erreur base : ${error.message}` });
   }
 });
 
