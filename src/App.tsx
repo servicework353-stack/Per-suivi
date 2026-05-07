@@ -1131,17 +1131,36 @@ const AdminDashboard = () => {
                             {status.dbError}
                           </div>
 
-                          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Diagnostic technique :</p>
-                            <p className="text-[10px] font-mono text-slate-600 break-all">
-                              Lien détecté: <span className="font-bold text-red-700">
-                                {status.isPostgres ? `postgresql://permis3_user:****@${status.resolvedHost || "..."}` : "AUCUN (Mode Temporaire SQLite)"}
+                            <p className="text-[10px] font-mono text-slate-600 break-all bg-white p-2 rounded border border-slate-100">
+                              Lien détecté: <span className={status.isPostgres ? "font-bold text-blue-700" : "font-bold text-red-500"}>
+                                {status.isPostgres ? `postgresql://permis3_user:****@${status.resolvedHost || "..."}` : "AUCUN (SQLite)"}
                               </span>
                             </p>
+                            {status.resolvedHost && status.resolvedHost.includes("-a") && (
+                              <div className="p-2 bg-red-600 text-white text-[10px] font-black rounded-lg animate-bounce flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4" />
+                                LIEN INTERNE DÉTECTÉ (-a) ! CHANGEZ-LE !
+                              </div>
+                            )}
                           </div>
 
                           <div className="space-y-4">
-                            <div className="p-5 bg-red-600 rounded-[32px] text-white shadow-xl animate-pulse ring-8 ring-red-100">
+                            {status.dbError?.includes("terminated unexpectedly") && (
+                              <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-2xl space-y-2">
+                                <div className="flex items-center gap-2 text-amber-700">
+                                  <AlertCircle className="w-5 h-5" />
+                                  <p className="text-xs font-black uppercase">Connexion perdue (Terminated)</p>
+                                </div>
+                                <p className="text-[11px] text-amber-900 leading-tight">
+                                  C'est souvent dû à une micro-coupure sur Render Free. 
+                                  <br/><strong>Solution :</strong> Attendez 10 secondes et réessayez. L'application va retenter automatiquement.
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="p-5 bg-red-600 rounded-[32px] text-white shadow-xl ring-8 ring-red-100">
                               <div className="flex items-center gap-4 mb-3">
                                 <AlertTriangle className="w-8 h-8 shrink-0" />
                                 <h4 className="font-black text-xl uppercase tracking-tighter italic">ERREUR CRITIQUE DANS VOTRE LIEN</h4>

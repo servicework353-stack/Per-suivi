@@ -34,10 +34,10 @@ const query = async (text: string, params?: any[]) => {
     try {
       return await db.query(text, params);
     } catch (err: any) {
-      if (retries > 0 && (err.message.includes("terminated unexpectedly") || err.message.includes("is closed") || err.message.includes("ECONNRESET"))) {
-        console.warn(`Postgres transient error, retrying... (${retries} retries left): ${err.message}`);
+      if (retries > 0 && (err.message.includes("terminated unexpectedly") || err.message.includes("is closed") || err.message.includes("ECONNRESET") || err.message.includes("connection timeout"))) {
+        console.warn(`Postgres error, retrying (${retries} left): ${err.message}`);
         retries--;
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 2000)); // Attente plus longue avant retry
         continue;
       }
       throw err;
@@ -76,10 +76,10 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db = new Pool({
       connectionString: trimmedConn,
       ssl: { rejectUnauthorized: false },
-      max: 5, // Réduit encore pour éviter de saturer la base Render Free
-      idleTimeoutMillis: 5000, // Déconnexion plus rapide des clients inactifs
-      connectionTimeoutMillis: 20000, 
-      query_timeout: 30000,
+      max: 3, // Réduit pour éviter de saturer la base Render Free
+      idleTimeoutMillis: 1000, // Déconnexion très rapide pour éviter les connexions "fantômes"
+      connectionTimeoutMillis: 30000, 
+      query_timeout: 45000,
     });
 
     db.on('error', (err: any) => {
