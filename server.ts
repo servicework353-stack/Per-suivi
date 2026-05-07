@@ -305,6 +305,9 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
     if (error.message.includes("unique") || error.code === "23505") {
       return res.status(400).json({ error: "Ce code de suivi existe déjà" });
     }
+    if ((error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT")) && error.message.includes("dpg-") && error.message.includes("-a")) {
+      return res.status(500).json({ error: "ERREUR RENDER : Vous utilisez l'URL 'Internal'. Allez sur Render -> Connect -> onglet de DROITE 'External Connection' et copiez CE LIEN LÀ (celui sans le '-a')." });
+    }
     if (error.message.includes("relation \"applications\" does not exist")) {
       return res.status(500).json({ error: "La table 'applications' est manquante. Redémarrez l'app ou vérifiez votre base Render." });
     }

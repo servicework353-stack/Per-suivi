@@ -1132,16 +1132,16 @@ const AdminDashboard = () => {
                             <div className="grid grid-cols-1 gap-2">
                               {[
                                 { t: "Ouvrez votre base de données sur Render", c: "Tableau de bord" },
-                                { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite de la page de la base" },
-                                { t: "CLIQUEZ SUR 'EXTERNAL CONNECTION'", c: "Onglet de DROITE (Indispensable)" },
-                                { t: "Copiez le lien (External Connection String)", c: "Le lien ne doit PAS contenir de '-a'" },
-                                { t: "Collez le lien dans les Settings ici", c: "Champ DATABASE_URL" }
+                                { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite" },
+                                { t: "IMPORTANT : Cliquez sur 'EXTERNAL CONNECTION'", c: "C'est l'onglet de DROITE" },
+                                { t: "Copiez le lien 'External Connection String'", c: "Il ne doit JAMAIS y avoir de '-a' dedans" },
+                                { t: "Collez le lien dans Settings -> DATABASE_URL", c: "Ici, sur le côté gauche" }
                               ].map((step, i) => (
-                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-red-600 border-red-400 text-white animate-pulse scale-[1.02]' : 'bg-white border-blue-100'}`}>
-                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-red-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
+                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-orange-600 border-orange-400 text-white animate-bounce scale-[1.05] ring-4 ring-orange-100' : 'bg-white border-blue-100'}`}>
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-orange-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
                                   <div className="flex flex-col">
                                     <span className={`text-xs font-bold ${i === 2 ? 'text-white' : 'text-slate-700'}`}>{step.t}</span>
-                                    <span className={`text-[10px] font-bold ${i === 2 ? 'text-red-100' : 'text-blue-500'}`}>{step.c}</span>
+                                    <span className={`text-[10px] font-bold ${i === 2 ? 'text-orange-100' : 'text-blue-500'}`}>{step.c}</span>
                                   </div>
                                 </div>
                               ))}
