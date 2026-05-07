@@ -44,12 +44,13 @@ if (isPostgres) {
           last_name TEXT,
           status TEXT NOT NULL,
           last_updated TEXT NOT NULL,
-          comment TEXT
+          comment TEXT,
+          history TEXT
         );
       `);
 
       // Add new columns if they don't exist
-      const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
+      const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url', 'history'];
       for (const col of columns) {
         await db.query(`
           DO $$ 
@@ -83,7 +84,7 @@ if (isPostgres) {
   `);
   
   // SQLite Migrations
-  const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
+  const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url', 'history'];
   for (const col of columns) {
     try {
       db.exec(`ALTER TABLE applications ADD COLUMN ${col} TEXT;`);
@@ -128,6 +129,13 @@ app.get("/api/track/:code", async (req, res) => {
 
     if (!application) {
       return res.status(404).json({ error: "Dossier non trouvé" });
+    }
+    if (application.history) {
+      try {
+        application.history = JSON.parse(application.history);
+      } catch (e) {
+        application.history = [];
+      }
     }
     // Cache for 1 minute to reduce DB load on frequent refreshes
     res.set('Cache-Control', 'public, max-age=60');
@@ -198,17 +206,18 @@ app.get("/api/admin/applications/:id", authenticateToken, async (req, res) => {
 app.post("/api/admin/applications", authenticateToken, async (req, res) => {
   const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment } = req.body;
   const last_updated = new Date().toISOString();
+  const history = JSON.stringify([{ status, date: last_updated, comment }]);
 
   try {
     if (isPostgres) {
       const result = await db.query(
-        "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
-        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment]
+        "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment, history) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id",
+        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment, history]
       );
       res.status(201).json({ id: result.rows[0].id });
     } else {
-      const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      const result = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment);
+      const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment, history) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const result = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment, history);
       res.status(201).json({ id: result.lastInsertRowid });
     }
   } catch (error: any) {
@@ -226,20 +235,42 @@ app.put("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const final_last_updated = last_updated || new Date().toISOString();
 
   try {
-    let result;
+    // Get current application to check for status change
+    let currentApp;
     if (isPostgres) {
-      result = await db.query(
-        "UPDATE applications SET tracking_code = $1, first_name = $2, last_name = $3, address = $4, phone = $5, license_category = $6, photo_url = $7, id_card_url = $8, status = $9, last_updated = $10, comment = $11 WHERE id = $12",
-        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, id]
-      );
-      if (result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
+      const result = await db.query("SELECT * FROM applications WHERE id = $1", [id]);
+      currentApp = result.rows[0];
     } else {
-      const stmt = db.prepare("UPDATE applications SET tracking_code = ?, first_name = ?, last_name = ?, address = ?, phone = ?, license_category = ?, photo_url = ?, id_card_url = ?, status = ?, last_updated = ?, comment = ? WHERE id = ?");
-      const resStmt = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, id);
-      if (resStmt.changes === 0) return res.status(404).json({ error: "Dossier non trouvé" });
+      currentApp = db.prepare("SELECT * FROM applications WHERE id = ?").get(id);
+    }
+
+    if (!currentApp) return res.status(404).json({ error: "Dossier non trouvé" });
+
+    // Update history if status changed or comment changed
+    let history = [];
+    try {
+      history = JSON.parse(currentApp.history || '[]');
+    } catch (e) {
+      history = [];
+    }
+
+    if (currentApp.status !== status || currentApp.comment !== comment) {
+      history.push({ status, date: final_last_updated, comment });
+    }
+    const finalHistory = JSON.stringify(history);
+
+    if (isPostgres) {
+      await db.query(
+        "UPDATE applications SET tracking_code = $1, first_name = $2, last_name = $3, address = $4, phone = $5, license_category = $6, photo_url = $7, id_card_url = $8, status = $9, last_updated = $10, comment = $11, history = $12 WHERE id = $13",
+        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, finalHistory, id]
+      );
+    } else {
+      const stmt = db.prepare("UPDATE applications SET tracking_code = ?, first_name = ?, last_name = ?, address = ?, phone = ?, license_category = ?, photo_url = ?, id_card_url = ?, status = ?, last_updated = ?, comment = ?, history = ? WHERE id = ?");
+      stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, finalHistory, id);
     }
     res.json({ success: true });
   } catch (error: any) {
+    console.error("Update error:", error);
     res.status(500).json({ error: "Erreur lors de la mise à jour" });
   }
 });

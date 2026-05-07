@@ -61,6 +61,7 @@ interface Application {
   status: string;
   last_updated: string;
   comment: string;
+  history?: { status: string; date: string; comment?: string }[];
 }
 
 const STATUS_OPTIONS = [
@@ -73,6 +74,139 @@ const STATUS_OPTIONS = [
 ];
 
 // --- COMPONENTS ---
+
+// --- COMPONENTS ---
+
+const AIChatbot = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([
+    { role: 'ai', text: "Bonjour ! Je suis votre assistant virtuel PermisSuivi. Comment puis-je vous aider aujourd'hui ? Je peux vous renseigner sur les étapes du dossier ou la signification d'un statut." }
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
+
+    const userMessage = input.trim();
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      // Use the injected skill logic for Gemini
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+      
+      const prompt = `Vous êtes un assistant virtuel officiel du Ministère des Transports spécialisé dans le suivi des permis de conduire sur la plateforme PermisSuivi.
+Vos réponses doivent être professionnelles, claires et empathiques.
+Voici le contexte de l'utilisateur :
+- Question : ${userMessage}
+- Statuts possibles : ${STATUS_OPTIONS.join(", ")}
+
+Signification des statuts :
+- "Dossier reçu" : Le dossier est bien arrivé mais n'a pas encore été ouvert par un agent.
+- "En cours de traitement" : Un agent examine actuellement les pièces.
+- "En attente de pièces complémentaires" : Il manque un document (souvent photo ou identité).
+- "Validé" : Le dossier est conforme, la production du titre commence.
+- "Rejeté" : Le dossier ne peut pas aboutir (voir commentaires admin).
+- "Permis disponible" : Le usager peut venir retirer son permis physique au centre d'examen.
+
+Si l'utilisateur demande où en est son dossier, rappelez-lui d'entrer son code de suivi sur la page d'accueil.
+Répondez en Français. Soyez concis.`;
+
+      const result = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt
+      });
+
+      setMessages(prev => [...prev, { role: 'ai', text: result.text || "Désolé, je rencontre une petite difficulté technique. Veuillez réessayer." }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: 'ai', text: "Désolé, le service d'assistance est temporairement indisponible." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[100]">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="absolute bottom-20 right-0 w-80 md:w-96 bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[500px]"
+          >
+            <div className="bg-blue-600 p-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-xl">
+                  <UserCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm">Assistant PermisSuivi</p>
+                  <p className="text-[10px] text-blue-100 opacity-80 uppercase tracking-widest font-bold">En ligne • Support IA</p>
+                </div>
+              </div>
+              <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1 rounded-lg">
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="flex-grow overflow-y-auto p-4 space-y-4">
+              {messages.map((m, i) => (
+                <div key={i} className={cn("flex", m.role === 'user' ? "justify-end" : "justify-start")}>
+                  <div className={cn(
+                    "max-w-[85%] px-4 py-3 rounded-2xl text-sm font-medium leading-relaxed shadow-sm",
+                    m.role === 'user' ? "bg-blue-600 text-white rounded-tr-none" : "bg-slate-100 text-slate-700 rounded-tl-none border border-slate-200/50"
+                  )}>
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-slate-100 p-4 rounded-2xl rounded-tl-none border border-slate-200/50 flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={sendMessage} className="p-4 bg-slate-50 border-t border-slate-100 flex gap-2">
+              <input 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Posez votre question..."
+                className="flex-grow bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button 
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                <Search className="w-5 h-5 rotate-90" />
+              </button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "w-14 h-14 rounded-full flex items-center justify-center text-white shadow-2xl transition-all active:scale-95 group",
+          isOpen ? "bg-slate-800 rotate-90" : "bg-blue-600 hover:bg-blue-700"
+        )}
+      >
+        {isOpen ? <Plus className="w-8 h-8 rotate-45" /> : <UserCircle className="w-8 h-8 group-hover:scale-110 transition-transform" />}
+      </button>
+    </div>
+  );
+};
 
 const Header = () => (
   <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
@@ -373,6 +507,73 @@ const UserHome = () => {
           </div>
         </section>
       </main>
+      <AIChatbot />
+    </div>
+  );
+};
+
+const ProgressTimeline = ({ history = [], currentStatus }: { history?: { status: string; date: string }[], currentStatus: string }) => {
+  const steps = [
+    { label: "Réception", statuses: ["Dossier reçu"] },
+    { label: "Examen", statuses: ["En cours de traitement", "En attente de pièces complémentaires"] },
+    { label: "Verdict", statuses: ["Validé", "Rejeté"] },
+    { label: "Disponibilité", statuses: ["Permis disponible"] }
+  ];
+
+  const getStepDate = (statuses: string[]) => {
+    const entry = history.find(h => statuses.includes(h.status));
+    return entry ? format(new Date(entry.date), "dd/MM/yy", { locale: fr }) : null;
+  };
+
+  const getCurrentStepIndex = () => {
+    return steps.findIndex(step => step.statuses.includes(currentStatus));
+  };
+
+  const currentIdx = getCurrentStepIndex();
+
+  return (
+    <div className="w-full py-12 px-4 md:px-0">
+      <div className="relative flex items-center justify-between">
+        {/* Background Line */}
+        <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0" />
+        {/* Progress Line */}
+        <div 
+          className="absolute top-1/2 left-0 h-1 bg-blue-600 -translate-y-1/2 z-0 transition-all duration-1000 ease-out" 
+          style={{ width: `${(Math.max(0, currentIdx) / (steps.length - 1)) * 100}%` }}
+        />
+        
+        {steps.map((step, idx) => {
+          const isCompleted = idx < currentIdx;
+          const isCurrent = idx === currentIdx;
+          const isRejeted = currentStatus === "Rejeté" && isCurrent;
+
+          return (
+            <div key={idx} className="relative z-10 flex flex-col items-center">
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 border-4",
+                isCompleted ? "bg-blue-600 border-blue-100" : 
+                isCurrent ? (isRejeted ? "bg-red-600 border-red-100" : "bg-white border-blue-600 animate-pulse") : 
+                "bg-white border-slate-200"
+              )}>
+                {isCompleted ? <CheckCircle2 className="w-5 h-5 text-white" /> : 
+                 isCurrent && isRejeted ? <AlertCircle className="w-5 h-5 text-white" /> :
+                 <div className={cn("w-2 h-2 rounded-full", isCurrent ? "bg-blue-600" : "bg-slate-300")} />}
+              </div>
+              <div className="absolute top-14 text-center min-w-[120px]">
+                <p className={cn(
+                  "text-[10px] font-bold uppercase tracking-widest",
+                  isCurrent || isCompleted ? "text-blue-600" : "text-slate-400"
+                )}>
+                  {step.label}
+                </p>
+                <p className="text-[9px] font-medium text-slate-400 mt-1 truncate">
+                  {getStepDate(step.statuses) || (isCurrent ? currentStatus : "")}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -473,7 +674,9 @@ const TrackingResultPage = () => {
                   </div>
 
                   <div className="p-6 md:p-12">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                    <ProgressTimeline history={result.history} currentStatus={result.status} />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mt-12">
                       {/* Left Column: Photo & Basic Info */}
                       <div className="lg:col-span-1 space-y-8">
                         <div className="relative group">
@@ -649,6 +852,7 @@ const TrackingResultPage = () => {
           </AnimatePresence>
         </div>
       </main>
+      <AIChatbot />
     </div>
   );
 };
@@ -810,7 +1014,24 @@ const AdminDashboard = () => {
   const [status, setStatus] = useState<{ database: string, isPostgres: boolean } | null>(null);
   const [editingApp, setEditingApp] = useState<Partial<Application> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("Tous");
   const navigate = useNavigate();
+
+  const filteredApps = apps.filter(app => {
+    const matchesSearch = 
+      app.tracking_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${app.first_name} ${app.last_name}`.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "Tous" || app.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: apps.length,
+    validated: apps.filter(a => a.status === "Validé" || a.status === "Permis disponible").length,
+    pending: apps.filter(a => a.status === "Dossier reçu" || a.status === "En cours de traitement").length,
+    rejected: apps.filter(a => a.status === "Rejeté").length,
+  };
 
   const fetchStatus = async () => {
     const token = localStorage.getItem("admin_token");
@@ -974,7 +1195,58 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {[
+            { label: "Total Dossiers", value: stats.total, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
+            { label: "Validés / Prêts", value: stats.validated, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
+            { label: "En Attente", value: stats.pending, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
+            { label: "Rejetés", value: stats.rejected, icon: AlertCircle, color: "text-red-600", bg: "bg-red-50" }
+          ].map((stat, i) => (
+            <motion.div 
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex items-center justify-between"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                <p className="text-3xl font-black text-slate-900 font-display">{stat.value}</p>
+              </div>
+              <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center", stat.bg)}>
+                <stat.icon className={cn("w-7 h-7", stat.color)} />
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-[32px] shadow-xl border border-slate-200 overflow-hidden">
+          {/* Filters Bar */}
+          <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="text" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Rechercher par nom ou code..."
+                className="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Filtrer :</span>
+              <select 
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="flex-1 md:flex-none bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+              >
+                <option value="Tous">Tous les statuts</option>
+                {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+            </div>
+          </div>
+
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">
@@ -989,7 +1261,7 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {apps.map((app) => (
+                {filteredApps.map((app) => (
                   <tr key={app.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4 font-bold text-slate-900 font-display">{app.tracking_code}</td>
                     <td className="px-6 py-4 text-slate-600 font-medium">{app.first_name} {app.last_name}</td>
@@ -1031,7 +1303,7 @@ const AdminDashboard = () => {
 
           {/* Mobile Card View */}
           <div className="md:hidden divide-y divide-slate-100">
-            {apps.map((app) => (
+            {filteredApps.map((app) => (
               <div key={app.id} className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-lg text-slate-900 font-display">{app.tracking_code}</span>
@@ -1066,12 +1338,12 @@ const AdminDashboard = () => {
             ))}
           </div>
 
-          {apps.length === 0 && (
+          {filteredApps.length === 0 && (
             <div className="px-6 py-20 text-center">
               <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
                 <FileText className="w-10 h-10 text-slate-200" />
               </div>
-              <p className="text-slate-400 italic font-medium">Aucun dossier enregistré pour le moment.</p>
+              <p className="text-slate-400 italic font-medium">Aucun dossier ne correspond à votre recherche.</p>
             </div>
           )}
         </div>
