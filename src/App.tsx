@@ -1133,11 +1133,11 @@ const AdminDashboard = () => {
                               {[
                                 { t: "Ouvrez votre base de données sur Render", c: "Tableau de bord" },
                                 { t: "Cliquez sur le bouton 'Connect'", c: "En haut à droite de la page de la base" },
-                                { t: "ONGLET 'EXTERNAL CONNECTION'", c: "L'onglet de DROITE (Indispensable)" },
-                                { t: "Copiez le lien (External Connection String)", c: "Celui sans le '-a'" },
+                                { t: "CLIQUEZ SUR 'EXTERNAL CONNECTION'", c: "Onglet de DROITE (Indispensable)" },
+                                { t: "Copiez le lien (External Connection String)", c: "Le lien ne doit PAS contenir de '-a'" },
                                 { t: "Collez le lien dans les Settings ici", c: "Champ DATABASE_URL" }
                               ].map((step, i) => (
-                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-red-600 border-red-400 text-white animate-pulse' : 'bg-white border-blue-100'}`}>
+                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-red-600 border-red-400 text-white animate-pulse scale-[1.02]' : 'bg-white border-blue-100'}`}>
                                   <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-red-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
                                   <div className="flex flex-col">
                                     <span className={`text-xs font-bold ${i === 2 ? 'text-white' : 'text-slate-700'}`}>{step.t}</span>
