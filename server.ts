@@ -40,14 +40,15 @@ if (connectionString && !connectionString.startsWith("https://")) {
     // Auto-fix Render Internal URL to External
     if (trimmedConn.includes("render.com") || trimmedConn.includes("dpg-")) {
       // 1. Remove the '-a' which indicates internal routing
-      if (trimmedConn.includes("-a.") || trimmedConn.includes("-a:") || trimmedConn.includes("-a-") || trimmedConn.includes("-a/")) {
+      // We look for -a before dots, colons, slashes or end of hostname
+      if (trimmedConn.match(/-a(?=\.|\:|\/|$)/)) {
         console.warn("!!! AUTO-FIX: Internal Render URL detected (-a). Fixing...");
-        trimmedConn = trimmedConn.replace(/-a(?=\.|\:|-|\/)/g, "");
+        trimmedConn = trimmedConn.replace(/-a(?=\.|\:|\/|$)/g, "");
       }
       
-      // 2. If the user copied the simple host (dpg-xxxxxx), try to fix the domain
-      // External hosts usually follow the pattern dpg-xxx.region-postgres.render.com
-      if (trimmedConn.includes("@dpg-") && !trimmedConn.includes(".render.com")) {
+      // 2. If the user copied the simple host (dpg-xxxxxx) or missing domain
+      const hostPart = trimmedConn.split('@')[1]?.split('/')[0];
+      if (hostPart && !hostPart.includes(".render.com")) {
         console.warn("!!! AUTO-FIX: Missing domain in Render URL. Appending .frankfurt-postgres.render.com...");
         trimmedConn = trimmedConn.replace(/(@dpg-[^/:]+)/, "$1.frankfurt-postgres.render.com");
       }
@@ -64,6 +65,15 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db.on('error', (err) => {
       console.error('Unexpected error on idle client', err);
     });
+
+    // Keep-alive: Ping the database every 60 seconds to keep connections warm
+    setInterval(async () => {
+      try {
+        await db.query('SELECT 1');
+      } catch (e) {
+        console.error('Postgres keep-alive ping failed:', e);
+      }
+    }, 60000);
 
     dbMode = 'postgres';
     

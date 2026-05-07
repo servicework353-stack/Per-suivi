@@ -43,7 +43,8 @@ import {
   Star,
   AlertTriangle,
   X,
-  Check
+  Check,
+  Database
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -1112,22 +1113,31 @@ const AdminDashboard = () => {
                   </div>
                   {!status.dbConnected && (
                     <div className="flex flex-col gap-2">
-                      <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
+                      <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 flex items-center gap-1 shadow-sm">
                         <AlertCircle className="w-3 h-3" />
-                        Base de données suspendue
+                        Base hors-ligne ou lien incorrect
                       </div>
                       
                       {status.dbError && (
-                        <div className="bg-white border-2 border-red-200 p-6 rounded-[32px] flex flex-col gap-4 max-w-lg shadow-xl animate-in zoom-in-95 duration-300">
+                        <div className="bg-white border-2 border-red-200 p-6 rounded-[32px] flex flex-col gap-4 max-w-lg shadow-2xl animate-in zoom-in-95 duration-500 ring-4 ring-red-50">
                           <div className="flex items-center gap-3 text-red-600">
                             <div className="bg-red-100 p-2 rounded-xl">
-                              <AlertCircle className="w-6 h-6" />
+                              <Database className="w-6 h-6" />
                             </div>
-                            <h3 className="font-black text-lg font-display">Action requise sur votre base de données</h3>
+                            <h3 className="font-black text-xl font-display uppercase tracking-tight">Erreur de Connexion</h3>
                           </div>
                           
-                          <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-red-800 text-sm font-medium leading-relaxed">
+                          <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-red-900 text-[13px] font-bold leading-relaxed shadow-inner">
                             {status.dbError}
+                          </div>
+
+                          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Diagnostic technique :</p>
+                            <p className="text-[10px] font-mono text-slate-600 break-all">
+                              Lien détecté: <span className="font-bold text-red-700">
+                                {status.isPostgres ? "postgresql://permis3_user:****@..." : "AUCUN (Mode Temporaire SQLite)"}
+                              </span>
+                            </p>
                           </div>
 
                           <div className="space-y-4">
@@ -1149,31 +1159,34 @@ const AdminDashboard = () => {
                                   </p>
                                 </div>
 
-                                <div className="space-y-2 pt-2 border-t border-orange-100">
-                                  <p className="text-[10px] font-bold text-slate-700 uppercase">Comment copier le lien (Le mot de passe est déjà dedans !) :</p>
+                                <div className="space-y-4 pt-2 border-t border-orange-100">
+                                  <div className="flex flex-col gap-1">
+                                    <p className="text-[10px] font-bold text-slate-700 uppercase">Le lien CORRECT (déjà avec mot de passe) :</p>
+                                    <p className="text-[9px] text-slate-500 italic">Copiez-le sur Render → Connect → External Connection</p>
+                                  </div>
                                   <div className="relative group">
                                     <div className="p-3 bg-white rounded-xl border border-orange-200 font-mono text-[9px] leading-relaxed shadow-inner">
                                       <span className="text-slate-400">postgresql://</span>
                                       <span className="text-blue-600 font-bold">permis3_user</span>
                                       <span className="text-slate-400">:</span>
-                                      <span className="text-pink-600 font-bold bg-pink-50 px-1 rounded" title="C'est votre mot de passe, il est déjà inclus !">MOT_DE_PASSE_INCLUS</span>
+                                      <span className="text-pink-600 font-bold bg-pink-50 px-1 rounded">MOT_DE_PASSE_INCLUS</span>
                                       <span className="text-slate-400">@</span>
                                       <span className="text-green-600 font-bold">dpg-xxxxxx</span>
                                       <span className="text-slate-400">.frankfurt-postgres.render.com/permis3</span>
                                     </div>
                                     <div className="absolute -top-2 -right-1 bg-pink-600 text-white text-[7px] px-2 py-0.5 rounded-full font-black shadow-lg animate-bounce">
-                                      PAS DE MOT DE PASSE À AJOUTER !
+                                      LE MOT DE PASSE EST DÉJÀ DEDANS !
                                     </div>
                                   </div>
                                 </div>
-                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 italic text-[9px] text-blue-700 space-y-2">
-                                  <div className="flex items-center gap-2">
+                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 space-y-2">
+                                  <div className="flex items-center gap-2 text-[9px] text-blue-700">
                                     <Check className="w-3 h-3 shrink-0" />
-                                    <span>Le lien complet est dans l'onglet <b>"External Connection"</b> sur Render.</span>
+                                    <span>L'onglet <b>"External Connection"</b> est celui de DROITE.</span>
                                   </div>
-                                  <div className="flex items-center gap-2 text-orange-600 font-bold p-1 bg-orange-100 rounded">
-                                    <Smartphone className="w-3 h-3 shrink-0" />
-                                    <span>SUR MOBILE : Utilisez le bouton "Copier" de Render, ne le faites pas à la main !</span>
+                                  <div className="flex items-center gap-2 text-red-600 font-black p-1.5 bg-red-100 rounded text-[9px]">
+                                    <X className="w-3 h-3 shrink-0" />
+                                    <span>NE TAPEZ RIEN À LA MAIN ! Utilisez le bouton de copie sur Render.</span>
                                   </div>
                                 </div>
                               </div>
