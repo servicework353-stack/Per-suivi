@@ -56,11 +56,20 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db = new Pool({
       connectionString: trimmedConn,
       ssl: { rejectUnauthorized: false },
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000, // Augmenté pour éviter les timeout rapides
+      max: 10, // Réduit pour plus de stabilité sur Render Free
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 15000, 
     });
+
+    db.on('error', (err) => {
+      console.error('Unexpected error on idle client', err);
+    });
+
     dbMode = 'postgres';
+    
+    // Redact password for logging
+    const redacted = trimmedConn.replace(/:([^:@]+)@/, ":****@");
+    console.log(`Database initialized in ${dbMode} mode. Host: ${redacted.split('@')[1]?.split('/')[0]}`);
     
     // Initialize Postgres Table & Migrations
     const initDb = async () => {
@@ -324,10 +333,17 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
     const connStr = (connectionString || "").trim();
     const isInternal = connStr.includes("-a.") || connStr.includes("-a:") || connStr.includes("-a-");
     const isEnotFound = error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT");
+    const isTerminated = error.message.includes("Connection terminated unexpectedly");
     
     if (isPostgres && (isInternal || (isEnotFound && connStr.includes("render.com")))) {
       return res.status(500).json({ 
         error: "ERREUR RENDER : Votre lien contient '-a' ou est inaccessible. Utilisez UNIQUEMENT le lien de l'onglet 'EXTERNAL CONNECTION' (celui qui n'a pas de '-a')." 
+      });
+    }
+
+    if (isPostgres && isTerminated) {
+      return res.status(500).json({
+        error: "CONNEXION COUPÉE : Render a rejeté la connexion. Vérifiez que vous avez copié le lien 'External Connection' COMPLET et réessayez dans 10 secondes."
       });
     }
 

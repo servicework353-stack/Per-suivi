@@ -1166,9 +1166,15 @@ const AdminDashboard = () => {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 italic text-[9px] text-blue-700 flex items-center gap-2">
-                                  <Check className="w-3 h-3 shrink-0" />
-                                  <span>Le lien complet est dans l'onglet <b>"External Connection"</b> sur Render.</span>
+                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 italic text-[9px] text-blue-700 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Check className="w-3 h-3 shrink-0" />
+                                    <span>Le lien complet est dans l'onglet <b>"External Connection"</b> sur Render.</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-orange-600 font-bold p-1 bg-orange-100 rounded">
+                                    <Smartphone className="w-3 h-3 shrink-0" />
+                                    <span>SUR MOBILE : Utilisez le bouton "Copier" de Render, ne le faites pas à la main !</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
