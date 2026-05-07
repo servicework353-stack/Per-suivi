@@ -1136,36 +1136,37 @@ const AdminDashboard = () => {
                             <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl space-y-4">
                               <div className="flex items-center gap-3 text-orange-700">
                                 <AlertTriangle className="w-5 h-5 shrink-0 animate-pulse" />
-                                <p className="text-xs font-black uppercase tracking-tight">Vérifiez votre lien attentivement :</p>
+                                <p className="text-xs font-black uppercase tracking-tight">Où trouver le bon lien sur Render :</p>
                               </div>
                               
-                              <div className="space-y-3">
+                              <div className="space-y-4">
                                 <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-slate-600 flex items-center gap-1 uppercase">
+                                    1. Cliquez sur le bouton "Connect" (en haut à droite sur Render)
+                                  </p>
                                   <p className="text-[10px] font-bold text-red-600 flex items-center gap-1">
-                                    <X className="w-3 h-3" /> MAUVAIS (Internal) : contient <span className="bg-red-200 px-1 rounded">-a</span>
+                                    2. Cliquez sur l'onglet <span className="bg-red-100 px-1 rounded">External Connection</span>
                                   </p>
-                                  <div className="p-2 bg-white text-[9px] text-slate-400 break-all rounded-lg border border-red-100 font-mono">
-                                    ...dpg-xxxxxx<b className="text-red-600 font-black underline">-a</b>.frankfurt...
-                                  </div>
                                 </div>
-                                
-                                <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-green-600 flex items-center gap-1">
-                                    <Check className="w-3 h-3" /> BON (External) : SANS le <span className="bg-green-100 px-1 rounded">-a</span>
-                                  </p>
-                                  <div className="p-2 bg-white text-[9px] text-green-700 break-all rounded-lg border border-green-300 font-bold font-mono shadow-sm">
-                                    ...<b>dpg-xxxxxx</b>.frankfurt...
-                                  </div>
-                                </div>
-                              </div>
 
-                              <div className="pt-2 border-t border-orange-100">
-                                <p className="text-[10px] text-orange-800 font-medium">
-                                  Lien détecté dans vos réglages : 
-                                  <span className="block mt-1 font-mono text-[9px] bg-white p-1 rounded border border-orange-200 text-orange-900 truncate">
-                                    {status.isPostgres ? "postgresql://permis3_user:****@dpg-..." : "Pas de lien détecté"}
-                                  </span>
-                                </p>
+                                <div className="space-y-2 pt-2 border-t border-orange-100">
+                                  <p className="text-[10px] font-bold text-slate-700 uppercase">Structure du lien (Le mot de passe est dedans) :</p>
+                                  <div className="relative group">
+                                    <div className="p-3 bg-white rounded-xl border border-orange-200 font-mono text-[9px] leading-relaxed shadow-inner">
+                                      <span className="text-slate-400">postgresql://</span>
+                                      <span className="text-blue-600 font-bold">permis3_user</span>
+                                      <span className="text-slate-400">:</span>
+                                      <span className="text-pink-600 font-bold" title="C'est votre mot de passe, il est déjà inclus !">MOT_DE_PASSE_AUTO</span>
+                                      <span className="text-slate-400">@</span>
+                                      <span className="text-green-600 font-bold">dpg-xxxxxx</span>
+                                      <span className="text-red-600 font-black decoration-double underline animate-pulse"> (PAS DE -A ICI) </span>
+                                      <span className="text-slate-400">.frankfurt...</span>
+                                    </div>
+                                    <div className="absolute -top-2 -right-2 bg-pink-500 text-white text-[8px] px-2 py-0.5 rounded-full font-bold shadow-sm">
+                                      Le mot de passe est ici ↑
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
 

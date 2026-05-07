@@ -42,9 +42,12 @@ if (connectionString && !connectionString.startsWith("https://")) {
     const hasDashA = trimmedConn.includes("-a.") || trimmedConn.includes("-a:") || trimmedConn.includes("-a-");
     
     if (isRenderHost && hasDashA) {
-      console.warn("!!! AUTO-FIX: Internal Render URL detected (-a). Attempting to use External URL...");
+      const originalHost = trimmedConn.split('@')[1]?.split('/')[0];
+      console.warn(`!!! AUTO-FIX: Internal Render URL detected: ${originalHost}`);
       // Replace -a followed by . or : or - or at end of hostname
       trimmedConn = trimmedConn.replace(/-a(?=\.|\:|-)/g, "");
+      const newHost = trimmedConn.split('@')[1]?.split('/')[0];
+      console.warn(`!!! AUTO-FIX: Using External Render URL: ${newHost}`);
     }
 
     db = new Pool({
@@ -52,7 +55,7 @@ if (connectionString && !connectionString.startsWith("https://")) {
       ssl: { rejectUnauthorized: false },
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000, 
+      connectionTimeoutMillis: 10000, // Augmenté pour éviter les timeout rapides
     });
     dbMode = 'postgres';
     
