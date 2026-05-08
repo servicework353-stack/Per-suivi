@@ -1126,146 +1126,17 @@ const AdminDashboard = () => {
                       </div>
                       
                       {status.dbError && (
-                        <div className="bg-white border-2 border-red-200 p-6 rounded-[32px] flex flex-col gap-4 max-w-lg shadow-2xl animate-in zoom-in-95 duration-500 ring-4 ring-red-50">
+                        <div className="bg-white border-2 border-red-200 p-4 rounded-2xl flex flex-col gap-3 max-w-lg shadow-lg">
                           <div className="flex items-center gap-3 text-red-600">
-                            <div className="bg-red-100 p-2 rounded-xl">
-                              <Database className="w-6 h-6" />
-                            </div>
-                            <h3 className="font-black text-xl font-display uppercase tracking-tight">Erreur de Connexion</h3>
+                            <AlertCircle className="w-5 h-5" />
+                            <h3 className="font-bold text-sm uppercase tracking-tight">Erreur de Connexion</h3>
                           </div>
-                          
-                          <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-red-900 text-[13px] font-bold leading-relaxed shadow-inner">
+                          <div className="text-xs text-red-800 font-medium leading-relaxed bg-red-50 p-3 rounded-lg border border-red-100 italic">
                             {status.dbError}
                           </div>
-
-                          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Diagnostic technique :</p>
-                            <p className="text-[10px] font-mono text-slate-600 break-all bg-white p-2 rounded border border-slate-100">
-                              Lien détecté: <span className={status.isPostgres ? "font-bold text-blue-700" : "font-bold text-red-500"}>
-                                {status.isPostgres ? `postgresql://permis3_user:****@${status.resolvedHost || "..."}` : "AUCUN (SQLite)"}
-                              </span>
-                            </p>
-                            {status.resolvedHost && status.resolvedHost.includes("-a") && (
-                              <div className="p-2 bg-red-600 text-white text-[10px] font-black rounded-lg animate-bounce flex items-center gap-2">
-                                <AlertTriangle className="w-4 h-4" />
-                                LIEN INTERNE DÉTECTÉ (-a) ! CHANGEZ-LE !
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="space-y-4">
-                            {status.dbError?.includes("terminated unexpectedly") && (
-                              <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-2xl space-y-2">
-                                <div className="flex items-center gap-2 text-amber-700">
-                                  <AlertCircle className="w-5 h-5" />
-                                  <p className="text-xs font-black uppercase">Connexion perdue (Terminated)</p>
-                                </div>
-                                <p className="text-[11px] text-amber-900 leading-tight">
-                                  C'est souvent dû à une micro-coupure sur Render Free. 
-                                  <br/><strong>Solution :</strong> Attendez 10 secondes et réessayez. L'application va retenter automatiquement.
-                                </p>
-                              </div>
-                            )}
-
-                            <div className="p-5 bg-red-600 rounded-[32px] text-white shadow-xl ring-8 ring-red-100">
-                              <div className="flex items-center gap-4 mb-3">
-                                <AlertTriangle className="w-8 h-8 shrink-0" />
-                                <h4 className="font-black text-xl uppercase tracking-tighter italic">ERREUR CRITIQUE DANS VOTRE LIEN</h4>
-                              </div>
-                              <p className="text-sm font-bold leading-tight">
-                                Vous utilisez probablement le lien <span className="underline decoration-yellow-400 decoration-2">INTERNAL</span>. 
-                                <br/><br/>
-                                Sur Render, vous DEVEZ cliquer sur l'onglet de <span className="bg-white text-red-600 px-2 py-0.5 rounded mx-1">DROITE</span> appelé :
-                                <br/>
-                                <span className="text-lg font-black block mt-2 py-2 bg-red-700 text-center rounded-xl border border-red-500">👉 EXTERNAL CONNECTION 👈</span>
-                              </p>
-                            </div>
-
-                            <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl space-y-4">
-                              <div className="flex items-center gap-3 text-orange-700">
-                                <AlertTriangle className="w-5 h-5 shrink-0 animate-pulse" />
-                                <p className="text-xs font-black uppercase tracking-tight">Vérification Visuelle :</p>
-                              </div>
-                              
-                              <div className="space-y-4">
-                                <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-red-700 flex items-center gap-1 uppercase">
-                                    ❌ MAUVAIS (Internal) :
-                                  </p>
-                                  <div className="p-2 bg-red-100/50 text-[9px] text-red-900 break-all rounded-lg border border-red-200 font-mono italic">
-                                    ...dpg-xxxxxx<b className="text-red-600 underline">-a</b>/permis...
-                                  </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-green-700 flex items-center gap-1 uppercase">
-                                    ✅ BON (External) :
-                                  </p>
-                                  <div className="p-2 bg-green-100/50 text-[9px] text-green-900 break-all rounded-lg border border-green-300 font-bold font-mono">
-                                    ...dpg-xxxxxx<b className="text-green-600">.frankfurt-postgres.render.com</b>/permis...
-                                  </div>
-                                </div>
-
-                                <div className="space-y-2 pt-2 border-t border-orange-100">
-                                  <p className="text-[10px] font-bold text-slate-700 uppercase">Le lien CORRECT (déjà avec mot de passe) :</p>
-                                  <div className="relative group">
-                                    <div className="p-3 bg-white rounded-xl border border-orange-200 font-mono text-[9px] leading-relaxed shadow-inner">
-                                      <span className="text-slate-400">postgresql://</span>
-                                      <span className="text-blue-600 font-bold">permis3_user</span>
-                                      <span className="text-slate-400">:</span>
-                                      <span className="text-pink-600 font-bold bg-pink-50 px-1 rounded">MOT_DE_PASSE_INCLUS</span>
-                                      <span className="text-slate-400">@</span>
-                                      <span className="text-green-600 font-bold">dpg-xxxxxx</span>
-                                      <span className="text-slate-400">.oregon-postgres.render.com/permis3</span>
-                                    </div>
-                                    <div className="absolute -top-2 -right-1 bg-pink-600 text-white text-[7px] px-2 py-0.5 rounded-full font-black shadow-lg animate-bounce">
-                                      LE MOT DE PASSE EST DÉJÀ DEDANS !
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 space-y-2">
-                                  <div className="flex items-center gap-2 text-[9px] text-blue-700">
-                                    <Check className="w-3 h-3 shrink-0" />
-                                    <span>L'onglet <b>"External Connection"</b> est celui de DROITE.</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-red-600 font-black p-1.5 bg-red-100 rounded text-[9px]">
-                                    <X className="w-3 h-3 shrink-0" />
-                                    <span>SUR MOBILE : Ne copiez pas à la main, utilisez le bouton de copie !</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-2">
-                              {[
-                                { t: "Ouvrez votre base sur Render", c: "Tableau de bord" },
-                                { t: "Cliquez sur 'Connect'", c: "Bouton en haut à droite" },
-                                { t: "IMPORTANT : Cliquez sur 'EXTERNAL CONNECTION'", c: "L'onglet de DROITE" },
-                                { t: "Copiez le lien (External Conn String)", c: "Pas de '-a' dedans !" },
-                                { t: "Collez le lien dans Settings -> DATABASE_URL", c: "Ici, sur le côté gauche" }
-                              ].map((step, i) => (
-                                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border shadow-sm ${i === 2 ? 'bg-blue-600 border-blue-400 text-white scale-[1.05] ring-4 ring-blue-100 animate-pulse' : 'bg-white border-blue-100'}`}>
-                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-md ${i === 2 ? 'bg-white text-blue-600' : 'bg-blue-600 text-white shadow-blue-200'}`}>{i+1}</span>
-                                  <div className="flex flex-col">
-                                    <span className={`text-xs font-bold ${i === 2 ? 'text-white' : 'text-slate-700'}`}>{step.t}</span>
-                                    <span className={`text-[10px] font-bold ${i === 2 ? 'text-blue-100' : 'text-blue-500'}`}>{step.c}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-2">
-                            <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                              Une fois copié, cliquez sur <b>⚙️ Settings</b> dans cet éditeur (à gauche), cherchez <b>DATABASE_URL</b> et collez le nouveau lien.
-                            </p>
-                            {status.dbError.includes("@@") && (
-                              <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-700 text-[10px] font-medium animate-pulse">
-                                <b>💡 Astuce Password :</b> Si votre mot de passe contient un @, vous devez le remplacer par %40 dans l'URL. 
-                                <br />Exemple: <code className="bg-indigo-100 px-1">...mdp@...</code> devient <code className="bg-indigo-100 px-1">...mdp%40...</code>
-                              </div>
-                            )}
-                          </div>
+                          <p className="text-[10px] text-slate-500">
+                            Vérifiez votre configuration <code className="bg-slate-100 px-1 rounded">DATABASE_URL</code> dans les paramètres.
+                          </p>
                         </div>
                       )}
                     </div>
