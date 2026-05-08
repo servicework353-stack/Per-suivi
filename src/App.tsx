@@ -1103,6 +1103,13 @@ const AdminDashboard = () => {
             <h1 className="text-4xl font-extrabold text-slate-900 font-display tracking-tight">Tableau de Bord</h1>
             <div className="flex items-center gap-3">
               <p className="text-slate-500 font-medium">Gestion centralisée des dossiers</p>
+              <button 
+                onClick={fetchStatus}
+                className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-400"
+                title="Actualiser le statut"
+              >
+                <Zap className="w-4 h-4" />
+              </button>
               {status && (
                 <div className="flex items-center gap-2">
                   <div className={cn(
