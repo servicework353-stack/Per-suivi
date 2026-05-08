@@ -29,15 +29,26 @@ let dbMode: 'postgres' | 'sqlite' = 'sqlite';
 // Database query helper with retry logic
 const query = async (text: string, params?: any[]) => {
   if (dbMode !== 'postgres') return null;
-  let retries = 2;
+  let retries = 3; // Augmenté à 3 retries
+  let delay = 1500; // Délai initial
   while (retries >= 0) {
     try {
       return await db.query(text, params);
     } catch (err: any) {
-      if (retries > 0 && (err.message.includes("terminated unexpectedly") || err.message.includes("is closed") || err.message.includes("ECONNRESET") || err.message.includes("connection timeout"))) {
-        console.warn(`Postgres error, retrying (${retries} left): ${err.message}`);
+      const msg = err.message || "";
+      const isTransient = 
+        msg.includes("terminated unexpectedly") || 
+        msg.includes("is closed") || 
+        msg.includes("ECONNRESET") || 
+        msg.includes("connection timeout") ||
+        msg.includes("socket hang up") ||
+        msg.includes("ETIMEDOUT");
+
+      if (retries > 0 && isTransient) {
+        console.warn(`Postgres error, retrying in ${delay}ms (${retries} left): ${msg}`);
         retries--;
-        await new Promise(r => setTimeout(r, 2000)); // Attente plus longue avant retry
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 2; // Backoff exponentiel
         continue;
       }
       throw err;
@@ -76,10 +87,12 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db = new Pool({
       connectionString: trimmedConn,
       ssl: { rejectUnauthorized: false },
-      max: 3, // Réduit pour éviter de saturer la base Render Free
-      idleTimeoutMillis: 1000, // Déconnexion très rapide pour éviter les connexions "fantômes"
+      max: 2, // Réduit au strict minimum pour éviter les conflits sur Render Free
+      idleTimeoutMillis: 5000, 
       connectionTimeoutMillis: 30000, 
-      query_timeout: 45000,
+      query_timeout: 60000,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 60000
     });
 
     db.on('error', (err: any) => {
