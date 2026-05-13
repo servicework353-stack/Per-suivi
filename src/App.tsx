@@ -952,9 +952,10 @@ const AdminLogin = () => {
 const AdminDashboard = () => {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<{ database: string, isPostgres: boolean, dbConnected: boolean, dbError: string | null } | null>(null);
+  const [status, setStatus] = useState<{ database: string, isPostgres: boolean, dbConnected: boolean, dbError: string | null, resolvedHost?: string } | null>(null);
   const [editingApp, setEditingApp] = useState<Partial<Application> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
   const fetchStatus = async () => {
@@ -1007,12 +1008,21 @@ const AdminDashboard = () => {
     fetchStatus();
   }, []);
 
+  const generateCode = () => {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+    const code = `FR-${year}-${random}`;
+    setEditingApp({ ...editingApp, tracking_code: code });
+  };
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+
     const token = localStorage.getItem("admin_token");
     const method = editingApp?.id ? "PUT" : "POST";
     const url = editingApp?.id ? `/api/admin/applications/${editingApp.id}` : "/api/admin/applications";
 
+    setSaving(true);
     try {
       const response = await fetch(url, {
         method,
@@ -1030,9 +1040,11 @@ const AdminDashboard = () => {
 
       setIsModalOpen(false);
       setEditingApp(null);
-      fetchApps();
+      await fetchApps();
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1293,13 +1305,22 @@ const AdminDashboard = () => {
               <form onSubmit={handleSave} className="p-6 md:p-8 space-y-6 overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Code de Suivi</label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Code de Suivi</label>
+                      <button 
+                        type="button"
+                        onClick={generateCode}
+                        className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <Zap className="w-3 h-3" /> Générer
+                      </button>
+                    </div>
                     <input 
                       type="text" 
                       required
                       value={editingApp?.tracking_code || ""}
                       onChange={(e) => setEditingApp({ ...editingApp, tracking_code: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono font-bold text-blue-700"
                       placeholder="Ex: FR-2024-001"
                     />
                   </div>
@@ -1416,9 +1437,18 @@ const AdminDashboard = () => {
                   </button>
                   <button 
                     type="submit"
-                    className="order-1 sm:order-2 bg-blue-600 text-white px-10 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 text-center"
+                    disabled={saving}
+                    className={cn(
+                      "order-1 sm:order-2 bg-blue-600 text-white px-10 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 text-center flex items-center justify-center gap-2",
+                      saving && "opacity-70 cursor-not-allowed"
+                    )}
                   >
-                    Enregistrer le Dossier
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Traitement...
+                      </>
+                    ) : "Enregistrer le Dossier"}
                   </button>
                 </div>
               </form>

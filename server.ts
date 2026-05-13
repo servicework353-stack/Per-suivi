@@ -88,17 +88,16 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db = new Pool({
       connectionString: trimmedConn,
       ssl: { rejectUnauthorized: false },
-      max: 2, 
-      idleTimeoutMillis: 1000, // Fermeture rapide pour éviter que Render ne les tue silencieusement
+      max: 1, 
+      idleTimeoutMillis: 1000, 
       connectionTimeoutMillis: 30000, 
       query_timeout: 60000,
       keepAlive: true,
-      keepAliveInitialDelayMillis: 30000 // Plus fréquent
+      keepAliveInitialDelayMillis: 30000 
     });
 
     db.on('error', (err: any) => {
       console.error('Unexpected error on idle PostgreSQL client:', err);
-      // If the error is serious, we might want to flag it for the status check
     });
 
     // Keep-alive: Ping the database every 45 seconds
@@ -152,8 +151,8 @@ if (connectionString && !connectionString.startsWith("https://")) {
         for (const col of columnsToEnsure) {
           try {
             await query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col} TEXT;`);
-          } catch (e) {
-            // Silently ignore if IF NOT EXISTS isn't supported or fails for other reasons
+          } catch (e: any) {
+            console.warn(`[INIT] Migration for column ${col} failed (often means it already exists):`, e.message);
           }
         }
         
@@ -212,8 +211,8 @@ const isPostgres = dbMode === 'postgres';
 
 const app = express();
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -369,53 +368,70 @@ app.get("/api/admin/applications/:id", authenticateToken, async (req, res) => {
 app.post("/api/admin/applications", authenticateToken, async (req, res) => {
   const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment } = req.body;
   const last_updated = new Date().toISOString();
+  
+  // Basic validation
+  if (!tracking_code || !String(tracking_code).trim()) {
+    return res.status(400).json({ error: "Le code de suivi est obligatoire." });
+  }
+
+  const trimmedCode = String(tracking_code).trim();
+  console.log(`[ADMIN] Attempting to create application: ${trimmedCode}`);
 
   try {
     if (isPostgres) {
-      if (!db) throw new Error("La base de données n'est pas initialisée.");
+      if (!db) {
+        console.error("[ADMIN] DB Pool is undefined during create");
+        throw new Error("La base de données n'est pas initialisée.");
+      }
+      
       const result = await query(
         "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
-        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment]
+        [trimmedCode, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment]
       );
-      res.status(201).json({ id: result?.rows[0].id });
+      
+      if (!result || !result.rows || result.rows.length === 0) {
+        console.error("[ADMIN] Insert failed to return an ID in Postgres");
+        throw new Error("Échec de l'insertion (Pas d'ID retourné)");
+      }
+      
+      console.log(`[ADMIN] Application created successfully in Postgres ID: ${result.rows[0].id}`);
+      res.status(201).json({ id: result.rows[0].id });
     } else {
+      console.log("[ADMIN] Inserting into SQLite...");
       const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      const result = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment);
+      const result = stmt.run(trimmedCode, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment);
+      console.log(`[ADMIN] Application created in SQLite ID: ${result.lastInsertRowid}`);
       res.status(201).json({ id: result.lastInsertRowid });
     }
   } catch (error: any) {
-    console.error("CRITICAL ERROR DURING CREATION:", error);
-    if (error.message.includes("unique") || error.code === "23505") {
-      return res.status(400).json({ error: "Ce code de suivi existe déjà" });
+    console.error("CRITICAL ERROR DURING CREATION:", error.message);
+    if (error.message.includes("unique") || error.code === "23505" || error.code === "SQLITE_CONSTRAINT") {
+      return res.status(400).json({ error: "Ce code de suivi existe déjà." });
     }
     
+    // Check for specific Render/Postgres connection issues
     const connStr = (connectionString || "").trim();
-    const isInternal = connStr.includes("-a.") || connStr.includes("-a:") || connStr.includes("-a-");
-    const isEnotFound = error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT");
-    const isTerminated = error.message.includes("Connection terminated unexpectedly");
+    const isEnotFound = error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT") || error.message.includes("ECONNREFUSED");
     
-    if (isPostgres && (isInternal || (isEnotFound && connStr.includes("render.com")))) {
+    if (isPostgres && isEnotFound) {
       return res.status(500).json({ 
-        error: "ERREUR RENDER : Votre lien contient '-a' ou est inaccessible. Utilisez UNIQUEMENT le lien de l'onglet 'EXTERNAL CONNECTION' (celui qui n'a pas de '-a')." 
-      });
-    }
-
-    if (isPostgres && isTerminated) {
-      return res.status(500).json({
-        error: "CONNEXION COUPÉE : Render a rejeté la connexion. Vérifiez que vous avez copié le lien 'External Connection' COMPLET et réessayez dans 10 secondes."
+        error: "SERVEUR INACCESSIBLE : Le lien Render est incorrect ou expiré. Vérifiez que vous avez copié le lien 'EXTERNAL CONNECTION' et réessayez." 
       });
     }
 
     if (error.message.includes("relation \"applications\" does not exist")) {
+      console.warn("[ADMIN] Table missing, attempting recovery creation...");
       try {
         if (db && isPostgres) {
           await query("CREATE TABLE IF NOT EXISTS applications (id SERIAL PRIMARY KEY, tracking_code TEXT UNIQUE NOT NULL, first_name TEXT, last_name TEXT, status TEXT NOT NULL, last_updated TEXT NOT NULL, comment TEXT, address TEXT, phone TEXT, license_category TEXT, photo_url TEXT, id_card_url TEXT)");
-          return res.status(500).json({ error: "Table créée. Veuillez cliquer à nouveau sur 'Enregistrer'." });
+          return res.status(500).json({ error: "Initialisation en cours (Table créée). Re-cliquez sur Enregistrer dans 5 secondes." });
         }
-      } catch (e) {}
-      return res.status(500).json({ error: "Table manquante sur votre base Render." });
+      } catch (e: any) {
+        console.error("[ADMIN] Recovery table creation failed:", e.message);
+      }
     }
-    res.status(500).json({ error: `Erreur base : ${error.message}` });
+    
+    res.status(500).json({ error: `Erreur base (${dbMode}) : ${error.message}` });
   }
 });
 
