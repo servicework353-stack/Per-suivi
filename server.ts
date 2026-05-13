@@ -29,12 +29,15 @@ let dbMode: 'postgres' | 'sqlite' = 'sqlite';
 // Database query helper with retry logic
 const query = async (text: string, params?: any[]) => {
   if (dbMode !== 'postgres') return null;
-  let retries = 5; // Plus de tentatives pour Render Free
-  let delay = 2000; // Délai initial plus long
+  let retries = 5; 
+  let delay = 1000; 
+  let lastError = null;
+
   while (retries >= 0) {
     try {
       return await db.query(text, params);
     } catch (err: any) {
+      lastError = err;
       const msg = err.message || "";
       const isTransient = 
         msg.includes("terminated unexpectedly") || 
@@ -46,15 +49,18 @@ const query = async (text: string, params?: any[]) => {
         msg.includes("SSL connection has been closed unexpectedly");
 
       if (retries > 0 && isTransient) {
-        console.warn(`Postgres transient error, retrying in ${delay}ms (${retries} left): ${msg}`);
+        console.warn(`[DB-RETRY] ${msg} - Tentative restante: ${retries} (attente ${delay}ms)`);
         retries--;
         await new Promise(r => setTimeout(r, delay));
-        delay = Math.min(delay * 2, 8000); // Backoff progressif
+        delay = Math.min(delay * 2, 7000); 
         continue;
       }
+      
+      console.error(`[DB-FATAL] ${msg}`);
       throw err;
     }
   }
+  throw lastError;
 };
 
 if (connectionString && !connectionString.startsWith("https://")) {
@@ -88,30 +94,33 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db = new Pool({
       connectionString: trimmedConn,
       ssl: { rejectUnauthorized: false },
-      max: 1, 
-      idleTimeoutMillis: 1000, 
-      connectionTimeoutMillis: 30000, 
-      query_timeout: 60000,
+      max: 4, // Un peu plus de connexions pour absorber les échecs
+      idleTimeoutMillis: 30000, // Garder les connexions un peu plus longtemps
+      connectionTimeoutMillis: 10000, // Ne pas attendre trop longtemps une nouvelle connexion
+      query_timeout: 45000, // Timeout raisonnable
       keepAlive: true,
-      keepAliveInitialDelayMillis: 30000 
+      keepAliveInitialDelayMillis: 15000 // Keep-alive plus fréquent
     });
 
     db.on('error', (err: any) => {
-      console.error('Unexpected error on idle PostgreSQL client:', err);
+      const msg = err.message || "";
+      if (msg.includes("terminated unexpectedly") || msg.includes("is closed")) {
+        console.warn('PostgreSQL: Une connexion inactive a été fermée par le serveur distant (Render).');
+      } else {
+        console.error('Erreur PostgreSQL inattendue sur un client inactif:', msg);
+      }
     });
 
-    // Keep-alive: Ping the database every 45 seconds
-    const intervalId = setInterval(async () => {
-      try {
-        await query('SELECT 1');
-      } catch (e: any) {
-        if (e.message.includes("Connection terminated unexpectedly") || e.message.includes("is closed")) {
-          console.warn('Postgres connection lost. Pool will attempt to recover on next query.');
-        } else {
-          console.error('Postgres keep-alive ping error:', e.message);
+    // Keep-alive simple pour éviter la mise en veille
+    setInterval(async () => {
+      if (dbMode === 'postgres') {
+        try {
+          await db.query('SELECT 1');
+        } catch (e) {
+          // Erreur ignorée ici car le pool gère ses clients
         }
       }
-    }, 45000);
+    }, 40000);
 
     dbMode = 'postgres';
     
@@ -120,12 +129,12 @@ if (connectionString && !connectionString.startsWith("https://")) {
     console.log(`Database initialized in ${dbMode} mode. Host: ${redacted.split('@')[1]?.split('/')[0]}`);
     
     // Initialize Postgres Table & Migrations
-    const initDb = async () => {
+    const initDb = async (attempt = 1) => {
       if (dbMode !== 'postgres') return;
       try {
-        console.log("Checking PostgreSQL connection...");
+        console.log(`[INIT] Checking PostgreSQL connection (Attempt ${attempt})...`);
         await query("SELECT 1");
-        console.log("PostgreSQL connection verified.");
+        console.log("[INIT] PostgreSQL connection verified.");
         
         await query(`
           CREATE TABLE IF NOT EXISTS applications (
@@ -144,7 +153,7 @@ if (connectionString && !connectionString.startsWith("https://")) {
           );
         `);
         
-        console.log("PostgreSQL Table 'applications' verified/created.");
+        console.log("[INIT] PostgreSQL Table 'applications' verified/created.");
 
         // Double check columns in case of partial creation
         const columnsToEnsure = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
@@ -156,13 +165,17 @@ if (connectionString && !connectionString.startsWith("https://")) {
           }
         }
         
-        console.log("PostgreSQL Database & Migrations Ready");
+        console.log("[INIT] PostgreSQL Database & Migrations Ready");
       } catch (err: any) {
         const isTransient = err.message.includes("terminated") || err.message.includes("closed") || err.message.includes("ECONNRESET");
-        if (isTransient) {
-          console.warn("PostgreSQL transient error during init (will retry):", err.message);
+        if (isTransient && attempt < 3) {
+          const wait = attempt * 3000;
+          console.warn(`[INIT] PostgreSQL transient error, retrying in ${wait}ms...`, err.message);
+          setTimeout(() => initDb(attempt + 1), wait);
+        } else if (isTransient) {
+          console.error("[INIT] PostgreSQL transient error after 3 attempts. Will wait for client activity.", err.message);
         } else {
-          console.error("PostgreSQL initialization error (will retry on next request):", err);
+          console.error("[INIT] PostgreSQL initialization CRITICAL error:", err);
         }
       }
     };
