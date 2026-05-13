@@ -29,8 +29,8 @@ let dbMode: 'postgres' | 'sqlite' = 'sqlite';
 // Database query helper with retry logic
 const query = async (text: string, params?: any[]) => {
   if (dbMode !== 'postgres') return null;
-  let retries = 3; // Augmenté à 3 retries
-  let delay = 1500; // Délai initial
+  let retries = 5; // Plus de tentatives pour Render Free
+  let delay = 2000; // Délai initial plus long
   while (retries >= 0) {
     try {
       return await db.query(text, params);
@@ -42,13 +42,14 @@ const query = async (text: string, params?: any[]) => {
         msg.includes("ECONNRESET") || 
         msg.includes("connection timeout") ||
         msg.includes("socket hang up") ||
-        msg.includes("ETIMEDOUT");
+        msg.includes("ETIMEDOUT") ||
+        msg.includes("SSL connection has been closed unexpectedly");
 
       if (retries > 0 && isTransient) {
-        console.warn(`Postgres error, retrying in ${delay}ms (${retries} left): ${msg}`);
+        console.warn(`Postgres transient error, retrying in ${delay}ms (${retries} left): ${msg}`);
         retries--;
         await new Promise(r => setTimeout(r, delay));
-        delay *= 2; // Backoff exponentiel
+        delay = Math.min(delay * 2, 8000); // Backoff progressif
         continue;
       }
       throw err;
@@ -87,12 +88,12 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db = new Pool({
       connectionString: trimmedConn,
       ssl: { rejectUnauthorized: false },
-      max: 2, // Réduit au strict minimum pour éviter les conflits sur Render Free
-      idleTimeoutMillis: 5000, 
+      max: 2, 
+      idleTimeoutMillis: 1000, // Fermeture rapide pour éviter que Render ne les tue silencieusement
       connectionTimeoutMillis: 30000, 
       query_timeout: 60000,
       keepAlive: true,
-      keepAliveInitialDelayMillis: 60000
+      keepAliveInitialDelayMillis: 30000 // Plus fréquent
     });
 
     db.on('error', (err: any) => {
@@ -157,8 +158,13 @@ if (connectionString && !connectionString.startsWith("https://")) {
         }
         
         console.log("PostgreSQL Database & Migrations Ready");
-      } catch (err) {
-        console.error("PostgreSQL initialization error (will retry on next request):", err);
+      } catch (err: any) {
+        const isTransient = err.message.includes("terminated") || err.message.includes("closed") || err.message.includes("ECONNRESET");
+        if (isTransient) {
+          console.warn("PostgreSQL transient error during init (will retry):", err.message);
+        } else {
+          console.error("PostgreSQL initialization error (will retry on next request):", err);
+        }
       }
     };
     initDb();
