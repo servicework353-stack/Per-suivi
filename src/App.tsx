@@ -952,8 +952,9 @@ const AdminLogin = () => {
 const AdminDashboard = () => {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [status, setStatus] = useState<{ database: string, isPostgres: boolean, dbConnected: boolean, dbError: string | null, resolvedHost?: string } | null>(null);
-  const [editingApp, setEditingApp] = useState<Partial<Application> | null>(null);
+  const [editingApp, setEditingApp] = useState<Partial<Application>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
@@ -978,6 +979,7 @@ const AdminDashboard = () => {
     if (!token) return navigate("/admin");
 
     try {
+      setFetchError(null);
       const response = await fetch("/api/admin/applications", {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -996,8 +998,7 @@ const AdminDashboard = () => {
       setApps(data);
     } catch (err: any) {
       console.error("Fetch apps error:", err);
-      // Don't redirect on generic server errors (like DB down)
-      // Only redirect on auth errors
+      setFetchError(err.message);
     } finally {
       setLoading(false);
     }
@@ -1039,7 +1040,7 @@ const AdminDashboard = () => {
       }
 
       setIsModalOpen(false);
-      setEditingApp(null);
+      setEditingApp({});
       await fetchApps();
     } catch (err: any) {
       alert(err.message);
@@ -1175,6 +1176,18 @@ const AdminDashboard = () => {
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+          {fetchError && (
+            <div className="p-6 bg-red-50 border-b border-red-100 flex items-center gap-4 text-red-700">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <p className="font-medium text-sm">Erreur de chargement : {fetchError}. Veuillez rafraîchir la page ou vérifier la connexion base de données.</p>
+              <button 
+                onClick={fetchApps}
+                className="ml-auto bg-white px-4 py-1.5 rounded-xl border border-red-200 text-xs font-bold hover:bg-red-100 transition-colors"
+              >
+                Réessayer
+              </button>
+            </div>
+          )}
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">

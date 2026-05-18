@@ -142,7 +142,7 @@ if (connectionString && !connectionString.startsWith("https://")) {
             tracking_code TEXT UNIQUE NOT NULL,
             first_name TEXT,
             last_name TEXT,
-            status TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Dossier reçu',
             last_updated TEXT NOT NULL,
             comment TEXT,
             address TEXT,
@@ -155,13 +155,24 @@ if (connectionString && !connectionString.startsWith("https://")) {
         
         console.log("[INIT] PostgreSQL Table 'applications' verified/created.");
 
-        // Double check columns in case of partial creation
-        const columnsToEnsure = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
+        // Double check all columns for safety
+        const columnsToEnsure = [
+          { name: 'address', type: 'TEXT' },
+          { name: 'phone', type: 'TEXT' },
+          { name: 'license_category', type: 'TEXT' },
+          { name: 'photo_url', type: 'TEXT' },
+          { name: 'id_card_url', type: 'TEXT' },
+          { name: 'first_name', type: 'TEXT' },
+          { name: 'last_name', type: 'TEXT' },
+          { name: 'status', type: 'TEXT' },
+          { name: 'comment', type: 'TEXT' }
+        ];
+
         for (const col of columnsToEnsure) {
           try {
-            await query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col} TEXT;`);
+            await query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col.name} ${col.type};`);
           } catch (e: any) {
-            console.warn(`[INIT] Migration for column ${col} failed (often means it already exists):`, e.message);
+            // Probably already exists, that's fine
           }
         }
         
@@ -175,7 +186,7 @@ if (connectionString && !connectionString.startsWith("https://")) {
         } else if (isTransient) {
           console.error("[INIT] PostgreSQL transient error after 3 attempts. Will wait for client activity.", err.message);
         } else {
-          console.error("[INIT] PostgreSQL initialization CRITICAL error:", err);
+          console.error("[INIT] PostgreSQL initialization error:", err);
         }
       }
     };
@@ -200,15 +211,20 @@ if (dbMode === 'sqlite') {
       tracking_code TEXT UNIQUE NOT NULL,
       first_name TEXT,
       last_name TEXT,
-      status TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Dossier reçu',
       last_updated TEXT NOT NULL,
-      comment TEXT
+      comment TEXT,
+      address TEXT,
+      phone TEXT,
+      license_category TEXT,
+      photo_url TEXT,
+      id_card_url TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_tracking_code_sqlite ON applications(tracking_code);
   `);
   
-  // SQLite Migrations
-  const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url'];
+  // SQLite Migrations for existing DBs
+  const columns = ['address', 'phone', 'license_category', 'photo_url', 'id_card_url', 'comment', 'first_name', 'last_name'];
   for (const col of columns) {
     try {
       db.exec(`ALTER TABLE applications ADD COLUMN ${col} TEXT;`);
@@ -218,9 +234,7 @@ if (dbMode === 'sqlite') {
   }
 }
 
-// ... existing code ...
-
-const isPostgres = dbMode === 'postgres';
+const getIsPostgres = () => dbMode === 'postgres';
 
 const app = express();
 app.use(compression());
@@ -232,10 +246,10 @@ const authenticateToken = (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) return res.sendStatus(401);
+  if (!token) return res.status(401).json({ error: "Authentification requise" });
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.sendStatus(403);
+    if (err) return res.status(403).json({ error: "Session expirée ou invalide" });
     req.user = user;
     next();
   });
@@ -246,36 +260,24 @@ const authenticateToken = (req: any, res: any, next: any) => {
 // Public: Get application by tracking code
 app.get("/api/track/:code", async (req, res) => {
   const { code } = req.params;
+  const isPostgres = getIsPostgres();
   try {
     let application;
     if (isPostgres) {
-      try {
-        const result = await query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
-        application = result?.rows[0];
-      } catch (dbErr) {
-        console.error("Postgres Tracking Query Error:", dbErr);
-        throw dbErr;
-      }
+      const result = await query("SELECT * FROM applications WHERE tracking_code = $1", [code]);
+      application = result?.rows[0];
     } else {
-      try {
-        application = db.prepare("SELECT * FROM applications WHERE tracking_code = ?").get(code);
-      } catch (dbErr) {
-        console.error("SQLite Tracking Query Error:", dbErr);
-        throw dbErr;
-      }
+      application = db.prepare("SELECT * FROM applications WHERE tracking_code = ?").get(code);
     }
 
     if (!application) {
       return res.status(404).json({ error: "Dossier non trouvé" });
     }
-    // Ensure users always get the latest data by disabling caching for this endpoint
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
     res.json(application);
   } catch (err) {
     console.error("Tracking API error:", err);
-    res.status(500).json({ error: "Erreur serveur" });
+    res.status(500).json({ error: "Erreur serveur de base de données" });
   }
 });
 
@@ -286,16 +288,15 @@ app.post("/api/admin/login", (req, res) => {
   const p = String(password || "").trim();
 
   if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
-    console.log(`Admin login successful for user: ${u}`);
     const token = jwt.sign({ username: u }, JWT_SECRET, { expiresIn: "24h" });
     return res.json({ token });
   }
-  console.warn(`Admin login failed for user: ${u}. Check ADMIN_USERNAME and ADMIN_PASSWORD env vars.`);
   res.status(401).json({ error: "Identifiants invalides." });
 });
 
 // Admin: Get system status
 app.get("/api/admin/status", authenticateToken, async (req, res) => {
+  const isPostgres = getIsPostgres();
   let dbConnected = false;
   let dbError = null;
   if (isPostgres) {
@@ -305,26 +306,14 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
       dbConnected = true;
     } catch (e: any) {
       dbConnected = false;
-      dbError = e.message;
-      
       const connStr = (connectionString || "").trim();
-      const isRenderHost = connStr.includes("render.com") || connStr.includes("dpg-");
-      const hasDashA = connStr.includes("-a.") || connStr.includes("-a:") || connStr.includes("-a-") || connStr.endsWith("-a");
-      
-      // Nettoyage des erreurs pour Render
       if (connStr.includes("[YOUR-PASSWORD]")) {
-        dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe dans les Settings.";
-      } else if (isRenderHost && (hasDashA || e.message.includes("ENOTFOUND"))) {
-        dbError = "ERREUR RENDER : Votre lien contient '-a'. C'est le lien 'Internal'. Allez sur Render -> Connect -> onglet de DROITE 'External Connection' et copiez LE LIEN SANS '-a'.";
+        dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe.";
       } else if (e.message.includes("password authentication failed")) {
-        dbError = "MOT DE PASSE INCORRECT : Le mot de passe dans votre URL Render est invalide.";
-      } else if (e.message.includes("ENOTFOUND") || e.message.includes("ETIMEDOUT") || e.message.includes("ECONNREFUSED")) {
-        dbError = "SERVEUR INACCESSIBLE : Assurez-vous d'utiliser le lien de l'onglet 'External Connection' sur Render.";
+        dbError = "MOT DE PASSE INCORRECT.";
       } else {
         dbError = e.message;
       }
-      
-      console.error("Status Check - DB Error:", e.message);
     }
   } else {
     dbConnected = true; 
@@ -333,35 +322,37 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
   const resolvedHost = isPostgres ? (connectionString || "").replace(/-a(?=\.|\:|\/|$)/g, "").split('@')[1]?.split('/')[0] : null;
 
   res.json({
-    database: isPostgres ? "Point d'accès PostgreSQL" : "Stockage SQLite (Local)",
-    mode: process.env.NODE_ENV || "development",
+    database: isPostgres ? "PostgreSQL (Render/Supabase)" : "SQLite (Local)",
     isPostgres,
     dbConnected,
-    dbError: dbConnected ? null : dbError,
+    dbError,
     resolvedHost
   });
 });
 
-// Admin: Get all applications (Optimized: No heavy images in list)
+// Admin: Get all applications
 app.get("/api/admin/applications", authenticateToken, async (req, res) => {
+  const isPostgres = getIsPostgres();
   try {
     let applications;
-    const queryStr = "SELECT id, tracking_code, first_name, last_name, status, last_updated, comment, phone, address, license_category FROM applications ORDER BY last_updated DESC";
+    const queryStr = "SELECT id, tracking_code, first_name, last_name, status, last_updated, phone FROM applications ORDER BY last_updated DESC";
     if (isPostgres) {
       const result = await query(queryStr);
       applications = result?.rows;
     } else {
       applications = db.prepare(queryStr).all();
     }
-    res.json(applications);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur serveur" });
+    res.json(applications || []);
+  } catch (err: any) {
+    console.error("Admin fetch apps error:", err.message);
+    res.status(500).json({ error: "Erreur lors du chargement des dossiers" });
   }
 });
 
-// Admin: Get single application (Full details including images)
+// Admin: Get single application
 app.get("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
+  const isPostgres = getIsPostgres();
   try {
     let application;
     if (isPostgres) {
@@ -372,114 +363,79 @@ app.get("/api/admin/applications/:id", authenticateToken, async (req, res) => {
     }
     if (!application) return res.status(404).json({ error: "Dossier non trouvé" });
     res.json(application);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur serveur" });
+  } catch (err: any) {
+    res.status(500).json({ error: "Erreur lors de la récupération du dossier" });
   }
 });
 
-    // Admin: Create application
+// Admin: Create application
 app.post("/api/admin/applications", authenticateToken, async (req, res) => {
+  const isPostgres = getIsPostgres();
   const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment } = req.body;
   const last_updated = new Date().toISOString();
+  const finalStatus = status || "Dossier reçu";
   
-  // Basic validation
   if (!tracking_code || !String(tracking_code).trim()) {
     return res.status(400).json({ error: "Le code de suivi est obligatoire." });
   }
 
   const trimmedCode = String(tracking_code).trim();
-  console.log(`[ADMIN] Attempting to create application: ${trimmedCode}`);
+  console.log(`[DB] Create request for: ${trimmedCode}`);
 
   try {
     if (isPostgres) {
-      if (!db) {
-        console.error("[ADMIN] DB Pool is undefined during create");
-        throw new Error("La base de données n'est pas initialisée.");
-      }
-      
       const result = await query(
         "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
-        [trimmedCode, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment]
+        [trimmedCode, first_name || null, last_name || null, address || null, phone || null, license_category || null, photo_url || null, id_card_url || null, finalStatus, last_updated, comment || null]
       );
-      
-      if (!result || !result.rows || result.rows.length === 0) {
-        console.error("[ADMIN] Insert failed to return an ID in Postgres");
-        throw new Error("Échec de l'insertion (Pas d'ID retourné)");
-      }
-      
-      console.log(`[ADMIN] Application created successfully in Postgres ID: ${result.rows[0].id}`);
       res.status(201).json({ id: result.rows[0].id });
     } else {
-      console.log("[ADMIN] Inserting into SQLite...");
       const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      const result = stmt.run(trimmedCode, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment);
-      console.log(`[ADMIN] Application created in SQLite ID: ${result.lastInsertRowid}`);
+      const result = stmt.run(trimmedCode, first_name || null, last_name || null, address || null, phone || null, license_category || null, photo_url || null, id_card_url || null, finalStatus, last_updated, comment || null);
       res.status(201).json({ id: result.lastInsertRowid });
     }
   } catch (error: any) {
-    console.error("CRITICAL ERROR DURING CREATION:", error.message);
-    if (error.message.includes("unique") || error.code === "23505" || error.code === "SQLITE_CONSTRAINT") {
+    console.error("[DB-CREATE] Error:", error.message);
+    if (error.message.includes("unique") || error.code === "23505" || error.message.includes("UNIQUE constraint failed")) {
       return res.status(400).json({ error: "Ce code de suivi existe déjà." });
     }
-    
-    // Check for specific Render/Postgres connection issues
-    const connStr = (connectionString || "").trim();
-    const isEnotFound = error.message.includes("ENOTFOUND") || error.message.includes("ETIMEDOUT") || error.message.includes("ECONNREFUSED");
-    
-    if (isPostgres && isEnotFound) {
-      return res.status(500).json({ 
-        error: "SERVEUR INACCESSIBLE : Le lien Render est incorrect ou expiré. Vérifiez que vous avez copié le lien 'EXTERNAL CONNECTION' et réessayez." 
-      });
-    }
-
-    if (error.message.includes("relation \"applications\" does not exist")) {
-      console.warn("[ADMIN] Table missing, attempting recovery creation...");
-      try {
-        if (db && isPostgres) {
-          await query("CREATE TABLE IF NOT EXISTS applications (id SERIAL PRIMARY KEY, tracking_code TEXT UNIQUE NOT NULL, first_name TEXT, last_name TEXT, status TEXT NOT NULL, last_updated TEXT NOT NULL, comment TEXT, address TEXT, phone TEXT, license_category TEXT, photo_url TEXT, id_card_url TEXT)");
-          return res.status(500).json({ error: "Initialisation en cours (Table créée). Re-cliquez sur Enregistrer dans 5 secondes." });
-        }
-      } catch (e: any) {
-        console.error("[ADMIN] Recovery table creation failed:", e.message);
-      }
-    }
-    
-    res.status(500).json({ error: `Erreur base (${dbMode}) : ${error.message}` });
+    res.status(500).json({ error: `Erreur base : ${error.message}` });
   }
 });
 
 // Admin: Update application
 app.put("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment, last_updated } = req.body;
-  const final_last_updated = last_updated || new Date().toISOString();
+  const isPostgres = getIsPostgres();
+  const { tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, comment } = req.body;
+  const last_updated = new Date().toISOString();
 
   try {
-    let result;
     if (isPostgres) {
-      result = await query(
+      const result = await query(
         "UPDATE applications SET tracking_code = $1, first_name = $2, last_name = $3, address = $4, phone = $5, license_category = $6, photo_url = $7, id_card_url = $8, status = $9, last_updated = $10, comment = $11 WHERE id = $12",
-        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, id]
+        [tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment, id]
       );
       if (!result || result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     } else {
       const stmt = db.prepare("UPDATE applications SET tracking_code = ?, first_name = ?, last_name = ?, address = ?, phone = ?, license_category = ?, photo_url = ?, id_card_url = ?, status = ?, last_updated = ?, comment = ? WHERE id = ?");
-      const resStmt = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, final_last_updated, comment, id);
+      const resStmt = stmt.run(tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment, id);
       if (resStmt.changes === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     }
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: "Erreur lors de la mise à jour" });
+    console.error("[DB-UPDATE] Error:", error.message);
+    res.status(500).json({ error: "Erreur lors de la mise à jour : " + error.message });
   }
 });
 
 // Admin: Delete application
 app.delete("/api/admin/applications/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
+  const isPostgres = getIsPostgres();
   try {
-    let result;
     if (isPostgres) {
-      result = await query("DELETE FROM applications WHERE id = $1", [id]);
+      const result = await query("DELETE FROM applications WHERE id = $1", [id]);
       if (!result || result.rowCount === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     } else {
       const stmt = db.prepare("DELETE FROM applications WHERE id = ?");
@@ -487,7 +443,7 @@ app.delete("/api/admin/applications/:id", authenticateToken, async (req, res) =>
       if (resStmt.changes === 0) return res.status(404).json({ error: "Dossier non trouvé" });
     }
     res.json({ success: true });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: "Erreur lors de la suppression" });
   }
 });
