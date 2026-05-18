@@ -819,13 +819,18 @@ const AdminLogin = () => {
         }),
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Identifiants invalides");
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error("Format de réponse invalide du serveur.");
       }
 
-      const { token } = await response.json();
-      localStorage.setItem("admin_token", token);
+      if (!response.ok) {
+        throw new Error(data.error || "Identifiants invalides");
+      }
+
+      localStorage.setItem("admin_token", data.token);
       navigate("/admin/dashboard");
     } catch (err: any) {
       setError(err.message);
@@ -966,8 +971,12 @@ const AdminDashboard = () => {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (response.ok) {
-        const data = await response.json();
-        setStatus(data);
+        try {
+          const data = await response.json();
+          setStatus(data);
+        } catch (e) {
+          console.error("Invalid JSON for status");
+        }
       }
     } catch (err) {
       console.error("Failed to fetch status");
@@ -989,12 +998,16 @@ const AdminDashboard = () => {
         return navigate("/admin");
       }
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Erreur serveur");
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error("Impossible de lire la réponse (JSON invalide)");
       }
-      
-      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erreur serveur");
+      }
       setApps(data);
     } catch (err: any) {
       console.error("Fetch apps error:", err);
@@ -1034,9 +1047,16 @@ const AdminDashboard = () => {
         body: JSON.stringify(editingApp),
       });
 
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        if (!response.ok) throw new Error("Erreur serveur critique (Status " + response.status + ")");
+        data = {};
+      }
+
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Erreur lors de l'enregistrement");
+        throw new Error(data.error || "Erreur lors de l'enregistrement");
       }
 
       setIsModalOpen(false);

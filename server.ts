@@ -75,79 +75,82 @@ const query = async (text: string, params?: any[]) => {
 let initConfirmed = false;
 let initInProgress = false;
 
+let initPromise: Promise<void> | null = null;
+
 // Initialize Postgres Table & Migrations
 const initDb = async (attempt = 1): Promise<void> => {
   if (dbMode !== 'postgres' || initConfirmed) return;
   
-  // If already in progress and this is a new call, wait for the existing one
-  if (initInProgress && attempt === 1) {
-    let waitCount = 0;
-    while (initInProgress && waitCount < 20) {
-      await new Promise(r => setTimeout(r, 500));
-      waitCount++;
-    }
-    return;
+  if (initPromise && attempt === 1) {
+    return initPromise;
   }
 
-  initInProgress = true;
-  try {
-    console.log(`[INIT] Checking PostgreSQL (Tentative ${attempt}/10)...`);
-    
-    // Test basic connectivity
-    await db.query("SELECT 1");
-    
-    // Create Table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS applications (
-        id SERIAL PRIMARY KEY,
-        tracking_code TEXT UNIQUE NOT NULL,
-        first_name TEXT,
-        last_name TEXT,
-        status TEXT NOT NULL DEFAULT 'Dossier reçu',
-        last_updated TEXT NOT NULL,
-        comment TEXT,
-        address TEXT,
-        phone TEXT,
-        license_category TEXT,
-        photo_url TEXT,
-        id_card_url TEXT
-      );
-    `);
-    
-    // Migration for missing columns
-    const columns = [
-      { n: 'address', t: 'TEXT' }, { n: 'phone', t: 'TEXT' },
-      { n: 'license_category', t: 'TEXT' }, { n: 'photo_url', t: 'TEXT' },
-      { n: 'id_card_url', t: 'TEXT' }, { n: 'first_name', t: 'TEXT' },
-      { n: 'last_name', t: 'TEXT' }, { n: 'status', t: 'TEXT' },
-      { n: 'comment', t: 'TEXT' }
-    ];
+  initPromise = (async () => {
+    initInProgress = true;
+    try {
+      console.log(`[INIT] Checking PostgreSQL (Tentative ${attempt}/10)...`);
+      
+      // Test basic connectivity
+      await db.query("SELECT 1");
+      
+      // Create Table
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS applications (
+          id SERIAL PRIMARY KEY,
+          tracking_code TEXT UNIQUE NOT NULL,
+          first_name TEXT,
+          last_name TEXT,
+          status TEXT NOT NULL DEFAULT 'Dossier reçu',
+          last_updated TEXT NOT NULL,
+          comment TEXT,
+          address TEXT,
+          phone TEXT,
+          license_category TEXT,
+          photo_url TEXT,
+          id_card_url TEXT
+        );
+      `);
+      
+      // Migration for missing columns
+      const columns = [
+        { n: 'address', t: 'TEXT' }, { n: 'phone', t: 'TEXT' },
+        { n: 'license_category', t: 'TEXT' }, { n: 'photo_url', t: 'TEXT' },
+        { n: 'id_card_url', t: 'TEXT' }, { n: 'first_name', t: 'TEXT' },
+        { n: 'last_name', t: 'TEXT' }, { n: 'status', t: 'TEXT' },
+        { n: 'comment', t: 'TEXT' }
+      ];
 
-    for (const col of columns) {
-      try {
-        await db.query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col.n} ${col.t};`);
-      } catch (e) {}
-    }
-    
-    console.log("[INIT] PostgreSQL OK.");
-    initConfirmed = true;
-    initInProgress = false;
-  } catch (err: any) {
-    const msg = (err.message || "").toLowerCase();
-    const isTransient = msg.includes("terminated") || msg.includes("closed") || msg.includes("econnreset") || msg.includes("etimedout") || msg.includes("handshake timeout");
-    
-    if (isTransient && attempt < 10) {
-      const wait = Math.min(attempt * 4000, 20000);
-      console.warn(`[INIT] Pause DB détectée, nouvelle tentative dans ${wait}ms...`);
-      await new Promise(r => setTimeout(r, wait));
+      for (const col of columns) {
+        try {
+          await db.query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col.n} ${col.t};`);
+        } catch (e) {}
+      }
+      
+      console.log("[INIT] PostgreSQL OK.");
+      initConfirmed = true;
       initInProgress = false;
-      return initDb(attempt + 1);
-    } else {
-      console.error("[INIT] Erreur PostgreSQL critique:", err.message);
-      initInProgress = false;
-      throw err; // Propagate to let the caller know it failed
+      initPromise = null;
+    } catch (err: any) {
+      const msg = (err.message || "").toLowerCase();
+      const isTransient = msg.includes("terminated") || msg.includes("closed") || msg.includes("econnreset") || msg.includes("etimedout") || msg.includes("handshake timeout");
+      
+      if (isTransient && attempt < 10) {
+        const wait = Math.min(attempt * 4000, 20000);
+        console.warn(`[INIT] Pause DB détectée, nouvelle tentative dans ${wait}ms...`);
+        await new Promise(r => setTimeout(r, wait));
+        initInProgress = false;
+        initPromise = null;
+        return initDb(attempt + 1);
+      } else {
+        console.error("[INIT] Erreur PostgreSQL critique:", err.message);
+        initInProgress = false;
+        initPromise = null;
+        throw err; 
+      }
     }
-  }
+  })();
+
+  return initPromise;
 };
 
 if (connectionString && !connectionString.startsWith("https://")) {
@@ -417,6 +420,9 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
         "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
         [trimmedCode, first_name || null, last_name || null, address || null, phone || null, license_category || null, photo_url || null, id_card_url || null, finalStatus, last_updated, comment || null]
       );
+      if (!result || !result.rows || result.rows.length === 0) {
+        throw new Error("L'insertion a réussi mais aucun ID n'a été retourné par la base de données.");
+      }
       res.status(201).json({ id: result.rows[0].id });
     } else {
       const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
