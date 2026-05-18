@@ -93,13 +93,15 @@ if (connectionString && !connectionString.startsWith("https://")) {
 
     db = new Pool({
       connectionString: trimmedConn,
-      ssl: { rejectUnauthorized: false },
-      max: 4, // Un peu plus de connexions pour absorber les échecs
-      idleTimeoutMillis: 30000, // Garder les connexions un peu plus longtemps
-      connectionTimeoutMillis: 10000, // Ne pas attendre trop longtemps une nouvelle connexion
-      query_timeout: 45000, // Timeout raisonnable
-      keepAlive: true,
-      keepAliveInitialDelayMillis: 15000 // Keep-alive plus fréquent
+      ssl: {
+        rejectUnauthorized: false
+      },
+      max: 4,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+      query_timeout: 45000,
+      keepAlive: true
+    });
     });
 
     db.on('error', (err: any) => {
