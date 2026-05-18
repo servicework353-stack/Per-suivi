@@ -820,10 +820,14 @@ const AdminLogin = () => {
       });
 
       let data;
+      const responseText = await response.text();
       try {
-        data = await response.json();
+        data = JSON.parse(responseText);
       } catch (e) {
-        throw new Error("Format de réponse invalide du serveur.");
+        if (!response.ok) {
+          throw new Error(`Erreur serveur (${response.status}): ${responseText.substring(0, 100) || "Pas de message"}`);
+        }
+        throw new Error("Le serveur n'a pas renvoyé de données valides (JSON invalide).");
       }
 
       if (!response.ok) {
@@ -999,10 +1003,12 @@ const AdminDashboard = () => {
       }
 
       let data;
+      const responseText = await response.text();
       try {
-        data = await response.json();
+        data = JSON.parse(responseText);
       } catch (e) {
-        throw new Error("Impossible de lire la réponse (JSON invalide)");
+        if (!response.ok) throw new Error(`Erreur serveur (${response.status}): ${responseText.substring(0, 100) || "Pas de réponse"}`);
+        data = [];
       }
 
       if (!response.ok) {
@@ -1048,10 +1054,11 @@ const AdminDashboard = () => {
       });
 
       let data;
+      const responseText = await response.text();
       try {
-        data = await response.json();
+        data = JSON.parse(responseText);
       } catch (e) {
-        if (!response.ok) throw new Error("Erreur serveur critique (Status " + response.status + ")");
+        if (!response.ok) throw new Error(`Erreur serveur (${response.status}): ${responseText.substring(0, 100) || "Pas de réponse"}`);
         data = {};
       }
 
@@ -1144,34 +1151,25 @@ const AdminDashboard = () => {
                 <Zap className="w-4 h-4" />
               </button>
               {status && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className={cn(
-                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
-                    status.isPostgres ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                    "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border flex items-center gap-3 shadow-sm",
+                    status.dbConnected ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-red-50 text-red-800 border-red-200"
                   )}>
-                    Stockage : {status.database}
+                    <div className={cn("w-2 h-2 rounded-full animate-pulse", status.dbConnected ? "bg-emerald-500" : "bg-red-500")} />
+                    <span>{status.database}</span>
                   </div>
-                  {!status.dbConnected && (
-                    <div className="flex flex-col gap-2">
-                      <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 flex items-center gap-1 shadow-sm">
-                        <AlertCircle className="w-3 h-3" />
-                        Base hors-ligne ou lien incorrect
+                  
+                  {!status.dbConnected && status.dbError && (
+                    <div className="group relative">
+                      <div className="bg-red-600 text-white p-2 rounded-xl cursor-help animate-bounce">
+                        <AlertTriangle className="w-4 h-4" />
                       </div>
-                      
-                      {status.dbError && (
-                        <div className="bg-white border-2 border-red-200 p-4 rounded-2xl flex flex-col gap-3 max-w-lg shadow-lg">
-                          <div className="flex items-center gap-3 text-red-600">
-                            <AlertCircle className="w-5 h-5" />
-                            <h3 className="font-bold text-sm uppercase tracking-tight">Erreur de Connexion</h3>
-                          </div>
-                          <div className="text-xs text-red-800 font-medium leading-relaxed bg-red-50 p-3 rounded-lg border border-red-100 italic">
-                            {status.dbError}
-                          </div>
-                          <p className="text-[10px] text-slate-500">
-                            Vérifiez votre configuration <code className="bg-slate-100 px-1 rounded">DATABASE_URL</code> dans les paramètres.
-                          </p>
-                        </div>
-                      )}
+                      <div className="absolute top-full left-0 mt-3 w-80 bg-white border-2 border-red-200 p-5 rounded-3xl shadow-2xl z-[100] opacity-0 group-hover:opacity-100 pointer-events-none transition-all scale-95 group-hover:scale-100 origin-top-left">
+                        <h4 className="text-red-600 font-black text-[10px] uppercase tracking-widest mb-2">Erreur Détectée</h4>
+                        <p className="text-xs text-slate-700 font-bold leading-relaxed bg-red-50/50 p-3 rounded-xl border border-red-50 mb-3">{status.dbError}</p>
+                        <p className="text-[9px] text-slate-400 font-medium">Vérifiez vos paramètres DATABASE_URL et assurez-vous que la base est active.</p>
+                      </div>
                     </div>
                   )}
                 </div>

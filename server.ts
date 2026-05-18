@@ -42,7 +42,12 @@ const query = async (text: string, params?: any[]) => {
   while (retries >= 0) {
     try {
       if (!db) throw new Error("Pool de connexion non initialisé");
-      return await db.query(text, params);
+      const client = await db.connect();
+      try {
+        return await client.query(text, params);
+      } finally {
+        client.release();
+      }
     } catch (err: any) {
       lastError = err;
       const msg = (err.message || "").toLowerCase();
@@ -55,13 +60,15 @@ const query = async (text: string, params?: any[]) => {
         msg.includes("etimedout") ||
         msg.includes("ssl connection has been closed") ||
         msg.includes("handshake timeout") ||
-        msg.includes("too many clients");
+        msg.includes("too many clients") ||
+        msg.includes("enotfound") ||
+        msg.includes("eai_again");
 
       if (retries > 0 && isTransient) {
         console.warn(`[DB-RETRY] ${msg} - Tentative restante: ${retries} (attente ${delay}ms)`);
         retries--;
         await new Promise(r => setTimeout(r, delay));
-        delay = Math.min(delay * 2, 10000); 
+        delay = Math.min(delay * 2, 15000); 
         continue;
       }
       
@@ -270,8 +277,20 @@ const getIsPostgres = () => dbMode === 'postgres';
 
 const app = express();
 app.use(compression());
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ limit: '20mb', extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Admin Status Public (to check connectivity easily)
+app.get("/api/health-check", async (req, res) => {
+  const isPostgres = getIsPostgres();
+  if (!isPostgres) return res.json({ status: "ok", mode: "sqlite" });
+  try {
+    const result = await db.query("SELECT 1");
+    res.json({ status: "ok", db: "connected", result: !!result });
+  } catch (e: any) {
+    res.status(500).json({ status: "error", message: e.message });
+  }
+});
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -339,12 +358,14 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
     } catch (e: any) {
       dbConnected = false;
       const connStr = (connectionString || "").trim();
-      if (connStr.includes("[YOUR-PASSWORD]")) {
-        dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe.";
+      if (connStr.includes("[YOUR-PASSWORD]") || connStr.includes("[PASSWORD]")) {
+        dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe dans les paramètres de l'application.";
       } else if (e.message.includes("password authentication failed")) {
-        dbError = "MOT DE PASSE INCORRECT.";
+        dbError = "MOT DE PASSE INCORRECT : Vérifiez le mot de passe dans votre DATABASE_URL.";
+      } else if (e.message.includes("ENOTFOUND") || e.message.includes("EAI_AGAIN") || e.message.includes("ETIMEDOUT")) {
+        dbError = "PROBLÈME DE CONNEXION : Le serveur de base de données est injoignable. Vérifiez votre DATABASE_URL (utilisez bien l'URL 'External' sur Render).";
       } else {
-        dbError = e.message;
+        dbError = `ERREUR : ${e.message}`;
       }
     }
   } else {
@@ -511,7 +532,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     
     // Keep-Alive: Ping itself every 10 minutes if APP_URL is set
@@ -523,6 +544,8 @@ async function startServer() {
       }, 10 * 60 * 1000);
     }
   });
+  
+  server.timeout = 120000; // 2 minutes timeout to handle slow DBs
 }
 
 startServer();
