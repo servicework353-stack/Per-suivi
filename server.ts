@@ -29,46 +29,30 @@ let dbMode: 'postgres' | 'sqlite' = 'sqlite';
 // Database query helper with retry logic
 const query = async (text: string, params?: any[]) => {
   if (dbMode !== 'postgres') return null;
-  
-  // Ensure table exists on first real query if init was flaky
-  if (!initConfirmed && !text.includes("CREATE TABLE") && !text.includes("SELECT 1")) {
-    await initDb();
-  }
-
-  let retries = 6; 
-  let delay = 1500; 
+  let retries = 5; 
+  let delay = 1000; 
   let lastError = null;
 
   while (retries >= 0) {
     try {
-      if (!db) throw new Error("Pool de connexion non initialisé");
-      const client = await db.connect();
-      try {
-        return await client.query(text, params);
-      } finally {
-        client.release();
-      }
+      return await db.query(text, params);
     } catch (err: any) {
       lastError = err;
-      const msg = (err.message || "").toLowerCase();
+      const msg = err.message || "";
       const isTransient = 
         msg.includes("terminated unexpectedly") || 
         msg.includes("is closed") || 
-        msg.includes("econnreset") || 
+        msg.includes("ECONNRESET") || 
         msg.includes("connection timeout") ||
         msg.includes("socket hang up") ||
-        msg.includes("etimedout") ||
-        msg.includes("ssl connection has been closed") ||
-        msg.includes("handshake timeout") ||
-        msg.includes("too many clients") ||
-        msg.includes("enotfound") ||
-        msg.includes("eai_again");
+        msg.includes("ETIMEDOUT") ||
+        msg.includes("SSL connection has been closed unexpectedly");
 
       if (retries > 0 && isTransient) {
         console.warn(`[DB-RETRY] ${msg} - Tentative restante: ${retries} (attente ${delay}ms)`);
         retries--;
         await new Promise(r => setTimeout(r, delay));
-        delay = Math.min(delay * 2, 15000); 
+        delay = Math.min(delay * 2, 7000); 
         continue;
       }
       
@@ -77,87 +61,6 @@ const query = async (text: string, params?: any[]) => {
     }
   }
   throw lastError;
-};
-
-let initConfirmed = false;
-let initInProgress = false;
-
-let initPromise: Promise<void> | null = null;
-
-// Initialize Postgres Table & Migrations
-const initDb = async (attempt = 1): Promise<void> => {
-  if (dbMode !== 'postgres' || initConfirmed) return;
-  
-  if (initPromise && attempt === 1) {
-    return initPromise;
-  }
-
-  initPromise = (async () => {
-    initInProgress = true;
-    try {
-      console.log(`[INIT] Checking PostgreSQL (Tentative ${attempt}/10)...`);
-      
-      // Test basic connectivity
-      await db.query("SELECT 1");
-      
-      // Create Table
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS applications (
-          id SERIAL PRIMARY KEY,
-          tracking_code TEXT UNIQUE NOT NULL,
-          first_name TEXT,
-          last_name TEXT,
-          status TEXT NOT NULL DEFAULT 'Dossier reçu',
-          last_updated TEXT NOT NULL,
-          comment TEXT,
-          address TEXT,
-          phone TEXT,
-          license_category TEXT,
-          photo_url TEXT,
-          id_card_url TEXT
-        );
-      `);
-      
-      // Migration for missing columns
-      const columns = [
-        { n: 'address', t: 'TEXT' }, { n: 'phone', t: 'TEXT' },
-        { n: 'license_category', t: 'TEXT' }, { n: 'photo_url', t: 'TEXT' },
-        { n: 'id_card_url', t: 'TEXT' }, { n: 'first_name', t: 'TEXT' },
-        { n: 'last_name', t: 'TEXT' }, { n: 'status', t: 'TEXT' },
-        { n: 'comment', t: 'TEXT' }
-      ];
-
-      for (const col of columns) {
-        try {
-          await db.query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col.n} ${col.t};`);
-        } catch (e) {}
-      }
-      
-      console.log("[INIT] PostgreSQL OK.");
-      initConfirmed = true;
-      initInProgress = false;
-      initPromise = null;
-    } catch (err: any) {
-      const msg = (err.message || "").toLowerCase();
-      const isTransient = msg.includes("terminated") || msg.includes("closed") || msg.includes("econnreset") || msg.includes("etimedout") || msg.includes("handshake timeout");
-      
-      if (isTransient && attempt < 10) {
-        const wait = Math.min(attempt * 4000, 20000);
-        console.warn(`[INIT] Pause DB détectée, nouvelle tentative dans ${wait}ms...`);
-        await new Promise(r => setTimeout(r, wait));
-        initInProgress = false;
-        initPromise = null;
-        return initDb(attempt + 1);
-      } else {
-        console.error("[INIT] Erreur PostgreSQL critique:", err.message);
-        initInProgress = false;
-        initPromise = null;
-        throw err; 
-      }
-    }
-  })();
-
-  return initPromise;
 };
 
 if (connectionString && !connectionString.startsWith("https://")) {
@@ -191,44 +94,102 @@ if (connectionString && !connectionString.startsWith("https://")) {
     db = new Pool({
       connectionString: trimmedConn,
       ssl: { rejectUnauthorized: false },
-      max: 6, // Un peu plus pour gérer la charge
-      idleTimeoutMillis: 10000, // Fermer plus vite pour éviter les 'terminated unexpectedly'
-      connectionTimeoutMillis: 15000, 
-      query_timeout: 60000, 
+      max: 4, // Un peu plus de connexions pour absorber les échecs
+      idleTimeoutMillis: 30000, // Garder les connexions un peu plus longtemps
+      connectionTimeoutMillis: 10000, // Ne pas attendre trop longtemps une nouvelle connexion
+      query_timeout: 45000, // Timeout raisonnable
       keepAlive: true,
-      keepAliveInitialDelayMillis: 10000 
+      keepAliveInitialDelayMillis: 15000 // Keep-alive plus fréquent
     });
 
     db.on('error', (err: any) => {
-      const msg = (err.message || "").toLowerCase();
+      const msg = err.message || "";
       if (msg.includes("terminated unexpectedly") || msg.includes("is closed")) {
-        console.warn('PostgreSQL: Connexion inactive fermée.');
+        console.warn('PostgreSQL: Une connexion inactive a été fermée par le serveur distant (Render).');
       } else {
-        console.error('Erreur PostgreSQL Pool:', msg);
+        console.error('Erreur PostgreSQL inattendue sur un client inactif:', msg);
       }
     });
 
-    // Keep-alive simple
+    // Keep-alive simple pour éviter la mise en veille
     setInterval(async () => {
-      if (dbMode === 'postgres' && db) {
+      if (dbMode === 'postgres') {
         try {
-          const client = await db.connect();
-          await client.query('SELECT 1');
-          client.release();
+          await db.query('SELECT 1');
         } catch (e) {
-          // Ignoré
+          // Erreur ignorée ici car le pool gère ses clients
         }
       }
-    }, 30000);
+    }, 40000);
 
     dbMode = 'postgres';
     
     // Redact password for logging
     const redacted = trimmedConn.replace(/:([^:@]+)@/, ":****@");
-    const safeHost = redacted.includes('@') ? redacted.split('@')[1]?.split('/')[0] : 'Unknown';
-    console.log(`Database initialized in ${dbMode} mode. Host: ${safeHost}`);
+    console.log(`Database initialized in ${dbMode} mode. Host: ${redacted.split('@')[1]?.split('/')[0]}`);
     
-    // Attempt init
+    // Initialize Postgres Table & Migrations
+    const initDb = async (attempt = 1) => {
+      if (dbMode !== 'postgres') return;
+      try {
+        console.log(`[INIT] Checking PostgreSQL connection (Attempt ${attempt})...`);
+        await query("SELECT 1");
+        console.log("[INIT] PostgreSQL connection verified.");
+        
+        await query(`
+          CREATE TABLE IF NOT EXISTS applications (
+            id SERIAL PRIMARY KEY,
+            tracking_code TEXT UNIQUE NOT NULL,
+            first_name TEXT,
+            last_name TEXT,
+            status TEXT NOT NULL DEFAULT 'Dossier reçu',
+            last_updated TEXT NOT NULL,
+            comment TEXT,
+            address TEXT,
+            phone TEXT,
+            license_category TEXT,
+            photo_url TEXT,
+            id_card_url TEXT
+          );
+        `);
+        
+        console.log("[INIT] PostgreSQL Table 'applications' verified/created.");
+
+        // Double check all columns for safety
+        const columnsToEnsure = [
+          { name: 'address', type: 'TEXT' },
+          { name: 'phone', type: 'TEXT' },
+          { name: 'license_category', type: 'TEXT' },
+          { name: 'photo_url', type: 'TEXT' },
+          { name: 'id_card_url', type: 'TEXT' },
+          { name: 'first_name', type: 'TEXT' },
+          { name: 'last_name', type: 'TEXT' },
+          { name: 'status', type: 'TEXT' },
+          { name: 'comment', type: 'TEXT' }
+        ];
+
+        for (const col of columnsToEnsure) {
+          try {
+            await query(`ALTER TABLE applications ADD COLUMN IF NOT EXISTS ${col.name} ${col.type};`);
+          } catch (e: any) {
+            // Probably already exists, that's fine
+          }
+        }
+        
+        console.log("[INIT] PostgreSQL Database & Migrations Ready");
+      } catch (err: any) {
+        const isTransient = err.message.includes("terminated") || err.message.includes("closed") || err.message.includes("ECONNRESET");
+        if (isTransient && attempt < 3) {
+          const wait = attempt * 3000;
+          console.warn(`[INIT] PostgreSQL transient error, retrying in ${wait}ms...`, err.message);
+          setTimeout(() => initDb(attempt + 1), wait);
+        } else if (isTransient) {
+          console.error("[INIT] PostgreSQL transient error after 3 attempts. Will wait for client activity.", err.message);
+        } else {
+          console.error("[INIT] PostgreSQL initialization error:", err);
+        }
+      }
+    };
     initDb();
   } catch (err) {
     console.error("Failed to initialize PostgreSQL pool:", err);
@@ -277,20 +238,8 @@ const getIsPostgres = () => dbMode === 'postgres';
 
 const app = express();
 app.use(compression());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// Admin Status Public (to check connectivity easily)
-app.get("/api/health-check", async (req, res) => {
-  const isPostgres = getIsPostgres();
-  if (!isPostgres) return res.json({ status: "ok", mode: "sqlite" });
-  try {
-    const result = await db.query("SELECT 1");
-    res.json({ status: "ok", db: "connected", result: !!result });
-  } catch (e: any) {
-    res.status(500).json({ status: "error", message: e.message });
-  }
-});
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -358,14 +307,12 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
     } catch (e: any) {
       dbConnected = false;
       const connStr = (connectionString || "").trim();
-      if (connStr.includes("[YOUR-PASSWORD]") || connStr.includes("[PASSWORD]")) {
-        dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe dans les paramètres de l'application.";
+      if (connStr.includes("[YOUR-PASSWORD]")) {
+        dbError = "MOT DE PASSE MANQUANT : Remplacez '[YOUR-PASSWORD]' par votre vrai mot de passe.";
       } else if (e.message.includes("password authentication failed")) {
-        dbError = "MOT DE PASSE INCORRECT : Vérifiez le mot de passe dans votre DATABASE_URL.";
-      } else if (e.message.includes("ENOTFOUND") || e.message.includes("EAI_AGAIN") || e.message.includes("ETIMEDOUT")) {
-        dbError = "PROBLÈME DE CONNEXION : Le serveur de base de données est injoignable. Vérifiez votre DATABASE_URL (utilisez bien l'URL 'External' sur Render).";
+        dbError = "MOT DE PASSE INCORRECT.";
       } else {
-        dbError = `ERREUR : ${e.message}`;
+        dbError = e.message;
       }
     }
   } else {
@@ -375,7 +322,7 @@ app.get("/api/admin/status", authenticateToken, async (req, res) => {
   const resolvedHost = isPostgres ? (connectionString || "").replace(/-a(?=\.|\:|\/|$)/g, "").split('@')[1]?.split('/')[0] : null;
 
   res.json({
-    database: isPostgres ? "PostgreSQL (Serveur)" : "SQLite (Local)",
+    database: isPostgres ? "PostgreSQL (Render/Supabase)" : "SQLite (Local)",
     isPostgres,
     dbConnected,
     dbError,
@@ -441,9 +388,6 @@ app.post("/api/admin/applications", authenticateToken, async (req, res) => {
         "INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
         [trimmedCode, first_name || null, last_name || null, address || null, phone || null, license_category || null, photo_url || null, id_card_url || null, finalStatus, last_updated, comment || null]
       );
-      if (!result || !result.rows || result.rows.length === 0) {
-        throw new Error("L'insertion a réussi mais aucun ID n'a été retourné par la base de données.");
-      }
       res.status(201).json({ id: result.rows[0].id });
     } else {
       const stmt = db.prepare("INSERT INTO applications (tracking_code, first_name, last_name, address, phone, license_category, photo_url, id_card_url, status, last_updated, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -532,7 +476,7 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     
     // Keep-Alive: Ping itself every 10 minutes if APP_URL is set
@@ -544,8 +488,6 @@ async function startServer() {
       }, 10 * 60 * 1000);
     }
   });
-  
-  server.timeout = 120000; // 2 minutes timeout to handle slow DBs
 }
 
 startServer();

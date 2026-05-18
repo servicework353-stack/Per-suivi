@@ -44,15 +44,13 @@ import {
   AlertTriangle,
   X,
   Check,
-  Database,
-  FileDown
+  Database
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { initAuth, signInWithGoogle, createApplicationDoc } from "./lib/googleDocs";
 
 // --- UTILS ---
 function cn(...inputs: ClassValue[]) {
@@ -821,22 +819,13 @@ const AdminLogin = () => {
         }),
       });
 
-      let data;
-      const responseText = await response.text();
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        if (!response.ok) {
-          throw new Error(`Erreur serveur (${response.status}): ${responseText.substring(0, 100) || "Pas de message"}`);
-        }
-        throw new Error("Le serveur n'a pas renvoyé de données valides (JSON invalide).");
-      }
-
       if (!response.ok) {
-        throw new Error(data.error || "Identifiants invalides");
+        const errData = await response.json();
+        throw new Error(errData.error || "Identifiants invalides");
       }
 
-      localStorage.setItem("admin_token", data.token);
+      const { token } = await response.json();
+      localStorage.setItem("admin_token", token);
       navigate("/admin/dashboard");
     } catch (err: any) {
       setError(err.message);
@@ -968,9 +957,6 @@ const AdminDashboard = () => {
   const [editingApp, setEditingApp] = useState<Partial<Application>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [googleUser, setGoogleUser] = useState<any>(null);
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
-  const [isExporting, setIsExporting] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const fetchStatus = async () => {
@@ -980,12 +966,8 @@ const AdminDashboard = () => {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (response.ok) {
-        try {
-          const data = await response.json();
-          setStatus(data);
-        } catch (e) {
-          console.error("Invalid JSON for status");
-        }
+        const data = await response.json();
+        setStatus(data);
       }
     } catch (err) {
       console.error("Failed to fetch status");
@@ -1007,18 +989,12 @@ const AdminDashboard = () => {
         return navigate("/admin");
       }
 
-      let data;
-      const responseText = await response.text();
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        if (!response.ok) throw new Error(`Erreur serveur (${response.status}): ${responseText.substring(0, 100) || "Pas de réponse"}`);
-        data = [];
-      }
-
       if (!response.ok) {
-        throw new Error(data.error || "Erreur serveur");
+        const errData = await response.json();
+        throw new Error(errData.error || "Erreur serveur");
       }
+      
+      const data = await response.json();
       setApps(data);
     } catch (err: any) {
       console.error("Fetch apps error:", err);
@@ -1032,48 +1008,6 @@ const AdminDashboard = () => {
     fetchApps();
     fetchStatus();
   }, []);
-
-  useEffect(() => {
-    const unsub = initAuth(
-      (user, token) => {
-        setGoogleUser(user);
-        setGoogleToken(token);
-      },
-      () => {
-        setGoogleUser(null);
-        setGoogleToken(null);
-      }
-    );
-    return () => unsub();
-  }, []);
-
-  const handleGoogleLogin = async () => {
-    try {
-      const result = await signInWithGoogle();
-      if (result) {
-        setGoogleUser(result.user);
-        setGoogleToken(result.accessToken);
-      }
-    } catch (err) {
-      alert("Échec de la connexion Google");
-    }
-  };
-
-  const handleExportToDocs = async (app: Application) => {
-    if (!googleToken) {
-      alert("Veuillez d'abord connecter votre compte Google.");
-      return;
-    }
-    setIsExporting(app.id);
-    try {
-      const docUrl = await createApplicationDoc(app as any, googleToken);
-      window.open(docUrl, "_blank");
-    } catch (err: any) {
-      alert(`Erreur d'exportation: ${err.message}`);
-    } finally {
-      setIsExporting(null);
-    }
-  };
 
   const generateCode = () => {
     const year = new Date().getFullYear();
@@ -1100,17 +1034,9 @@ const AdminDashboard = () => {
         body: JSON.stringify(editingApp),
       });
 
-      let data;
-      const responseText = await response.text();
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        if (!response.ok) throw new Error(`Erreur serveur (${response.status}): ${responseText.substring(0, 100) || "Pas de réponse"}`);
-        data = {};
-      }
-
       if (!response.ok) {
-        throw new Error(data.error || "Erreur lors de l'enregistrement");
+        const errData = await response.json();
+        throw new Error(errData.error || "Erreur lors de l'enregistrement");
       }
 
       setIsModalOpen(false);
@@ -1198,25 +1124,34 @@ const AdminDashboard = () => {
                 <Zap className="w-4 h-4" />
               </button>
               {status && (
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
                   <div className={cn(
-                    "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border flex items-center gap-3 shadow-sm",
-                    status.dbConnected ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-red-50 text-red-800 border-red-200"
+                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
+                    status.isPostgres ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
                   )}>
-                    <div className={cn("w-2 h-2 rounded-full animate-pulse", status.dbConnected ? "bg-emerald-500" : "bg-red-500")} />
-                    <span>{status.database}</span>
+                    Stockage : {status.database}
                   </div>
-                  
-                  {!status.dbConnected && status.dbError && (
-                    <div className="group relative">
-                      <div className="bg-red-600 text-white p-2 rounded-xl cursor-help animate-bounce">
-                        <AlertTriangle className="w-4 h-4" />
+                  {!status.dbConnected && (
+                    <div className="flex flex-col gap-2">
+                      <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 flex items-center gap-1 shadow-sm">
+                        <AlertCircle className="w-3 h-3" />
+                        Base hors-ligne ou lien incorrect
                       </div>
-                      <div className="absolute top-full left-0 mt-3 w-80 bg-white border-2 border-red-200 p-5 rounded-3xl shadow-2xl z-[100] opacity-0 group-hover:opacity-100 pointer-events-none transition-all scale-95 group-hover:scale-100 origin-top-left">
-                        <h4 className="text-red-600 font-black text-[10px] uppercase tracking-widest mb-2">Erreur Détectée</h4>
-                        <p className="text-xs text-slate-700 font-bold leading-relaxed bg-red-50/50 p-3 rounded-xl border border-red-50 mb-3">{status.dbError}</p>
-                        <p className="text-[9px] text-slate-400 font-medium">Vérifiez vos paramètres DATABASE_URL et assurez-vous que la base est active.</p>
-                      </div>
+                      
+                      {status.dbError && (
+                        <div className="bg-white border-2 border-red-200 p-4 rounded-2xl flex flex-col gap-3 max-w-lg shadow-lg">
+                          <div className="flex items-center gap-3 text-red-600">
+                            <AlertCircle className="w-5 h-5" />
+                            <h3 className="font-bold text-sm uppercase tracking-tight">Erreur de Connexion</h3>
+                          </div>
+                          <div className="text-xs text-red-800 font-medium leading-relaxed bg-red-50 p-3 rounded-lg border border-red-100 italic">
+                            {status.dbError}
+                          </div>
+                          <p className="text-[10px] text-slate-500">
+                            Vérifiez votre configuration <code className="bg-slate-100 px-1 rounded">DATABASE_URL</code> dans les paramètres.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1224,33 +1159,6 @@ const AdminDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {!googleToken ? (
-              <button 
-                onClick={handleGoogleLogin}
-                className="flex-1 md:flex-none bg-white text-slate-700 px-6 py-3.5 rounded-2xl font-bold border border-slate-200 flex items-center justify-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95 group"
-              >
-                <div className="w-5 h-5 flex items-center justify-center">
-                  <svg viewBox="0 0 48 48" className="w-full h-full">
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                  </svg>
-                </div>
-                <span className="hidden sm:inline">Connecter Google Docs</span>
-                <span className="sm:hidden">Google</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl">
-                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
-                  <img src={googleUser?.photoURL} alt="Google" className="w-full h-full object-cover" />
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-[10px] font-black uppercase text-emerald-800 leading-none">Connecté Docs</p>
-                  <p className="text-[9px] font-bold text-emerald-600 truncate max-w-[100px]">{googleUser?.email}</p>
-                </div>
-              </div>
-            )}
             <button 
               onClick={() => { setEditingApp({ status: STATUS_OPTIONS[0] }); setIsModalOpen(true); }}
               className="flex-1 md:flex-none bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
@@ -1314,19 +1222,6 @@ const AdminDashboard = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {googleToken && (
-                          <button 
-                            onClick={() => handleExportToDocs(app)}
-                            disabled={isExporting === app.id}
-                            className={cn(
-                              "p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors",
-                              isExporting === app.id && "animate-pulse"
-                            )}
-                            title="Exporter vers Google Docs"
-                          >
-                            {isExporting === app.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-                          </button>
-                        )}
                         <button 
                           onClick={() => handleEdit(app)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1367,16 +1262,6 @@ const AdminDashboard = () => {
                   <span className="text-slate-400">{format(new Date(app.last_updated), "dd/MM/yy")}</span>
                 </div>
                 <div className="flex items-center gap-3 pt-2">
-                  {googleToken && (
-                    <button 
-                      onClick={() => handleExportToDocs(app)}
-                      disabled={isExporting === app.id}
-                      className="flex-1 bg-emerald-50 text-emerald-600 py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
-                    >
-                      {isExporting === app.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} 
-                      Docs
-                    </button>
-                  )}
                   <button 
                     onClick={() => handleEdit(app)}
                     className="flex-1 bg-blue-50 text-blue-600 py-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
