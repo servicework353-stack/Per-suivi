@@ -85,10 +85,10 @@ if (connectionString && !connectionString.startsWith("https://")) {
       
       // 2. If the user copied the simple host (dpg-xxxxxx) or missing domain
       const hostPart = trimmedConn.split('@')[1]?.split('/')[0];
-      if (hostPart && !hostPart.includes(".render.com")) {
-        console.warn("!!! AUTO-FIX: Missing domain in Render URL. Appending .frankfurt-postgres.render.com...");
-        trimmedConn = trimmedConn.replace(/(@dpg-[^/:]+)/, "$1.frankfurt-postgres.render.com");
-      }
+      // if (hostPart && !hostPart.includes(".render.com")) {
+      // console.warn("!!! AUTO-FIX: Missing domain in Render URL. Appending .frankfurt-postgres.render.com...");
+      // trimmedConn = trimmedConn.replace(/(@dpg-[^/:]+)/, "$1.frankfurt-postgres.render.com");
+     // }
     }
 
     db = new Pool({
